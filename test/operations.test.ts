@@ -1,7 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TAGS, operations, runOperation } from '../src/operations/index.js';
 import { listarDisciplinas } from '../src/operations/disciplinas.js';
 import { obterNotas } from '../src/operations/notas.js';
+import { obterFaltas } from '../src/operations/faltas.js';
+import { listarFaltasPorAula } from '../src/operations/faltas-aulas.js';
 import { listarPeriodos } from '../src/operations/periodos.js';
 import { academicRoute, createTestSession, type DataRoute } from './support/fake-portal.js';
 
@@ -138,5 +140,158 @@ describe('obterNotas', () => {
     expect(error).toMatchObject({ code: 'resposta_inesperada' });
     expect((error as Error).message).toContain('Notas.0.IDTURMADISC');
     expect((error as Error).message).not.toContain(secret);
+  });
+});
+
+describe('obterFaltas', () => {
+  const row = {
+    Filial: 'Unidade Exemplo',
+    CODTURMA: 'DS-2026-A',
+    CODDISC: 'PW2',
+    Disciplina: 'Programação Web II',
+    Situação: 'Matriculado',
+    '0 - Faltas': '8',
+    PERCENTUAL: 11.11,
+    IDTURMADISC: 48213,
+    SITUACAOFALTAS: 4,
+  };
+
+  it('maps the totals, the stage columns and the limit legend', async () => {
+    const other = { ...row, IDTURMADISC: 48230, '0 - Faltas': null, '1 - Faltas': '2', PERCENTUAL: null, SITUACAOFALTAS: 9 };
+    const { session } = sessionWith({ 'TOTVSEducacional/FaltaEtapa': academicRoute(CONTEXT_ID, { FaltasEtapa: [row, other] }) });
+    const result = await runOperation(obterFaltas, session, {});
+
+    expect(result.periodo).toBe('2026S2');
+    expect(result.disciplinas).toEqual([
+      {
+        idTurmaDisc: 48213,
+        codigo: 'PW2',
+        nome: 'Programação Web II',
+        turma: 'DS-2026-A',
+        situacao: 'Matriculado',
+        percentual: 11.11,
+        limite: { codigo: 4, descricao: 'Não foi possível calcular o percentual' },
+        etapas: [{ etapa: 0, nome: 'Faltas', valor: '8', faltas: 8 }],
+      },
+      expect.objectContaining({
+        idTurmaDisc: 48230,
+        percentual: null,
+        limite: { codigo: 9, descricao: null },
+        etapas: [
+          { etapa: 0, nome: 'Faltas', valor: null, faltas: null },
+          { etapa: 1, nome: 'Faltas', valor: '2', faltas: 2 },
+        ],
+      }),
+    ]);
+  });
+
+  it('sends idTurmaDisc to the portal only when given', async () => {
+    const { portal, session } = sessionWith({ 'TOTVSEducacional/FaltaEtapa': academicRoute(CONTEXT_ID, { FaltasEtapa: [row] }) });
+    await runOperation(obterFaltas, session, {});
+    await runOperation(obterFaltas, session, { idTurmaDisc: 48213 });
+    const sent = portal.requests
+      .filter((r) => r.url.pathname.endsWith('FaltaEtapa'))
+      .map((r) => r.url.searchParams.get('idTurmaDisc'));
+    expect(sent).toEqual([null, '48213']);
+  });
+});
+
+describe('listarFaltasPorAula', () => {
+  const row = {
+    CODCOLIGADA: 1,
+    IDTURMADISC: 48213,
+    IDPLANOAULA: 7310452,
+    IDHORARIOTURMA: 15945342,
+    AULA: 21,
+    CODDISC: 'PW2',
+    DISCIPLINA: 'Programação Web II',
+    DATAFALTA: '2026-09-14T00:00:00',
+    DATA: '2026-09-14T00:00:00',
+    HORAINICIAL: '19:50',
+    HORAFINAL: '20:40',
+    JUSTIFICADAPERSONALIZADO: 'Não',
+    ABONAFALTAPERSONALIZADO: '',
+    MOTIVOPERSONALIZADO: null,
+    COMPOETOTALFALTAS: null,
+    PRESENCA: 'A',
+    JUSTIFICADA: null,
+    CODSUBTURMA: null,
+    SITUACAO: 'Não justificada',
+  };
+  const rows = [
+    row,
+    { ...row, IDTURMADISC: 48230, CODDISC: 'BD1', CODSUBTURMA: 'SUBTURMA C', DATAFALTA: '2026-08-03T00:00:00', AULA: 3 },
+    { ...row, AULA: 20, HORAINICIAL: '19:00', HORAFINAL: '19:50' },
+  ];
+  const route = () => academicRoute(CONTEXT_ID, { SFREQUENCIAALUNO: rows });
+  const sentQuery = (portal: { requests: { url: URL }[] }) =>
+    Object.fromEntries(portal.requests.findLast((r) => r.url.pathname.endsWith('Aluno/Falta/Aula'))!.url.searchParams);
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('maps the rows and sorts them by date and time', async () => {
+    const { session } = sessionWith({ 'TOTVSEducacional/Aluno/Falta/Aula': route() });
+    const result = await runOperation(listarFaltasPorAula, session, { de: '2026-08-01', ate: '2026-10-29' });
+
+    expect(result).toMatchObject({ periodo: '2026S2', de: '2026-08-01', ate: '2026-10-29' });
+    expect(result.faltas.map((f) => [f.data, f.horaInicial, f.aula])).toEqual([
+      ['2026-08-03', '19:50', 3],
+      ['2026-09-14', '19:00', 20],
+      ['2026-09-14', '19:50', 21],
+    ]);
+    expect(result.faltas[0]).toMatchObject({ idTurmaDisc: 48230, codigo: 'BD1', subturma: 'SUBTURMA C' });
+    expect(result.faltas[2]).toEqual({
+      idTurmaDisc: 48213,
+      codigo: 'PW2',
+      disciplina: 'Programação Web II',
+      subturma: null,
+      data: '2026-09-14',
+      aula: 21,
+      horaInicial: '19:50',
+      horaFinal: '20:40',
+      situacao: 'Não justificada',
+      justificada: 'Não',
+      abono: null,
+      motivo: null,
+      idPlanoAula: 7310452,
+    });
+  });
+
+  it('asks the portal for absences over whole local days', async () => {
+    const { portal, session } = sessionWith({ 'TOTVSEducacional/Aluno/Falta/Aula': route() });
+    await runOperation(listarFaltasPorAula, session, { de: '2026-08-01', ate: '2026-10-29' });
+    expect(sentQuery(portal)).toEqual({
+      dataDe: new Date(2026, 7, 1, 0, 0, 0, 0).toISOString(),
+      dataAte: new Date(2026, 9, 29, 23, 59, 59, 999).toISOString(),
+      tipoFrequencia: 'A',
+    });
+  });
+
+  it('defaults to the page window: 360 days back to today', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 9, 29, 15, 30));
+    const { portal, session } = sessionWith({ 'TOTVSEducacional/Aluno/Falta/Aula': route() });
+
+    const result = await runOperation(listarFaltasPorAula, session, {});
+    expect(result).toMatchObject({ de: '2025-11-03', ate: '2026-10-29' });
+    expect(sentQuery(portal).dataDe).toBe(new Date(2025, 10, 3).toISOString());
+  });
+
+  it('filters by idTurmaDisc here, without changing the portal call', async () => {
+    const { portal, session } = sessionWith({ 'TOTVSEducacional/Aluno/Falta/Aula': route() });
+    const result = await runOperation(listarFaltasPorAula, session, { de: '2026-08-01', ate: '2026-10-29', idTurmaDisc: 48230 });
+    expect(result.faltas.map((f) => f.idTurmaDisc)).toEqual([48230]);
+    expect(sentQuery(portal)).not.toHaveProperty('idTurmaDisc');
+  });
+
+  it('rejects invalid dates and a window that ends before it starts', async () => {
+    const { session } = sessionWith({});
+    await expect(runOperation(listarFaltasPorAula, session, { de: '2026-02-30' })).rejects.toMatchObject({ name: 'ZodError' });
+    await expect(runOperation(listarFaltasPorAula, session, { de: '2026-10-29', ate: '2026-10-01' })).rejects.toMatchObject({
+      name: 'ZodError',
+      issues: [expect.objectContaining({ path: ['de'] })],
+    });
   });
 });

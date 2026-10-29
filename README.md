@@ -7,11 +7,11 @@ Class project, not official, not affiliated with SENAI or FIEB. Scope and limits
 ## Status
 
 - [x] Core client: login, context cookie, re-login on expiry, rate limit (`src/core`)
-- [x] Operations: `/periodos`, `/disciplinas`, `/notas` (`src/operations`)
+- [x] Operations: `/periodos`, `/disciplinas`, `/notas`, `/faltas`, `/faltas/aulas` (`src/operations`)
 - [x] OpenAPI 3.1 document generated from the operations ([openapi.json](openapi.json))
 - [x] Local server (`portal-aluno serve`)
 - [x] Docs page with "testar", built from `openapi.json` (`web/`)
-- [ ] More operations (faltas, horário, calendário, aulas, materiais)
+- [ ] More operations (horário, calendário, aulas, materiais)
 - [ ] MCP server
 
 ## Requirements
@@ -69,6 +69,7 @@ Run one operation against the real portal, without the server:
 npm run try                                   # lists the operations
 npm run try -- notas
 npm run try -- listarDisciplinas '{"apenasEmCurso":true}'
+npm run try -- faltas/aulas '{"de":"2026-08-01"}'
 ```
 
 The output is your own data, so don't paste it anywhere public.

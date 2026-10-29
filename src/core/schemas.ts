@@ -11,6 +11,12 @@ export const integerLike = z.union([z.number().int(), z.string().regex(/^-?\d+$/
 /** A code sent as a string or a number, as a string. */
 export const codeLike = z.union([z.string(), z.number()]).transform(String);
 
+/** Optional text: `null`, missing or blank becomes `null`; other text is trimmed. */
+export const optionalText = z
+  .string()
+  .nullish()
+  .transform((value) => value?.trim() || null);
+
 /** An optional code: `null`, missing or blank becomes `null`. */
 export const optionalCode = z
   .union([z.string(), z.number(), z.null()])

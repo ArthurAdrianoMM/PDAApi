@@ -161,6 +161,22 @@ describe('input', () => {
     expect(res.status).toBe(400);
     expect(await res.json()).toMatchObject({ erro: 'parametro_invalido', detalhes: [{ campo: 'periodo' }] });
   });
+
+  it('serves a nested path and keeps dates as text', async () => {
+    const { authed, portal } = setup({
+      routes: { 'TOTVSEducacional/Aluno/Falta/Aula': academicRoute(CONTEXT_ID, { SFREQUENCIAALUNO: [] }) },
+    });
+    const res = await authed('/faltas/aulas?de=2026-08-01&ate=2026-10-29&idTurmaDisc=48213');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ periodo: '2026S2', de: '2026-08-01', ate: '2026-10-29', faltas: [] });
+    expect(portal.requests.at(-1)!.url.searchParams.get('tipoFrequencia')).toBe('A');
+  });
+
+  it('reports a date window that ends before it starts on the field', async () => {
+    const res = await setup().authed('/faltas/aulas?de=2026-10-29&ate=2026-10-01');
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ erro: 'parametro_invalido', detalhes: [{ campo: 'de' }] });
+  });
 });
 
 describe('errors', () => {
