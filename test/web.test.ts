@@ -16,7 +16,7 @@ describe('spec model', () => {
   it('has every operation, grouped by tag, with its example', () => {
     expect(model.operations.map((op) => op.id).sort()).toEqual(operations.map((op) => op.id).sort());
     for (const op of operations) expect(byId(op.id).example).toEqual(op.example);
-    expect(model.tags.map((t) => t.name)).toEqual(['Período', 'Desempenho']);
+    expect(model.tags.map((t) => t.name)).toEqual(['Período', 'Desempenho', 'Rotina']);
   });
 
   it('reads parameters, errors, upstream calls and the portal address', () => {

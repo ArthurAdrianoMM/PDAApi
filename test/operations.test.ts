@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TAGS, operations, runOperation } from '../src/operations/index.js';
 import { listarDisciplinas } from '../src/operations/disciplinas.js';
+import { obterHorario } from '../src/operations/horario.js';
 import { obterNotas } from '../src/operations/notas.js';
 import { obterFaltas } from '../src/operations/faltas.js';
 import { listarFaltasPorAula } from '../src/operations/faltas-aulas.js';
@@ -293,5 +294,132 @@ describe('listarFaltasPorAula', () => {
       name: 'ZodError',
       issues: [expect.objectContaining({ path: ['de'] })],
     });
+  });
+});
+
+describe('obterHorario', () => {
+  // Only the date is faked; the session's timers keep working.
+  const today = (date: string) => vi.useFakeTimers({ toFake: ['Date'] }).setSystemTime(new Date(`${date}T10:00:00`));
+  afterEach(() => vi.useRealTimers());
+
+  /** A `DIASEMANA` `'0'` row, as the portal sends it: a time band and nothing else. */
+  const faixa = (inicio: string, fim: string) => ({
+    DIASEMANA: '0',
+    HORAINICIAL: inicio,
+    HORAFINAL: fim,
+    CODTURMA: null,
+    NOMEREDUZIDO: null,
+    DATAINICIAL: null,
+    DATAFINAL: null,
+    CODPREDIO: null,
+    CODSALA: null,
+    CODDISC: null,
+    NOME: null,
+    IDTURMADISC: null,
+    IDHORARIOTURMA: null,
+    CODSUBTURMA: null,
+    IMPBOLETIM: null,
+    IDTURMADISCORIGEM: null,
+    URLAULAONLINE: null,
+    PREDIO: null,
+    BLOCO: null,
+    SALA: null,
+  });
+
+  const aula = (dia: string, inicio: string, fim: string, extra: Record<string, unknown> = {}) => ({
+    ...faixa(inicio, fim),
+    DIASEMANA: dia,
+    CODTURMA: 'DS-2026-A',
+    NOMEREDUZIDO: 'PW2',
+    DATAINICIAL: '2026-08-03T00:00:00',
+    DATAFINAL: '2026-12-18T00:00:00',
+    CODDISC: 'PW2',
+    NOME: 'Programação Web II',
+    IDTURMADISC: 48213,
+    IDHORARIOTURMA: 90121,
+    IMPBOLETIM: 'S',
+    PREDIO: 'PRD1 - Prédio 1',
+    BLOCO: '1 - Bloco A',
+    SALA: 'LAB3 - Laboratório 3',
+    ...extra,
+  });
+
+  const quadro = (rows: unknown[]) => ({ SQuadroHorarioAluno: [], SHorarioAluno: rows, SDescDisc: [], SQuadroHorarioAulaOnline: [] });
+  const sessionFor = (rows: unknown[]) => sessionWith({ 'TOTVSEducacional/QuadroHorarioAluno': academicRoute(CONTEXT_ID, quadro(rows)) });
+
+  it('maps class slots, sorted by day and time, and keeps every row as a time band', async () => {
+    today('2026-10-29');
+    const { session } = sessionFor([
+      faixa('18:30', '19:20'),
+      aula('4', '18:30', '19:20', { CODSUBTURMA: 'SUBTURMA C', PREDIO: null, BLOCO: ' ', SALA: null }),
+      aula('2', '19:20', '20:10', { IDHORARIOTURMA: 90122 }),
+      aula('2', '18:30', '19:20'),
+      faixa('20:10', '21:00'),
+    ]);
+    const result = await runOperation(obterHorario, session, {});
+
+    expect(result.periodo).toBe('2026S2');
+    expect(result.faixas).toEqual([
+      { inicio: '18:30', fim: '19:20' },
+      { inicio: '19:20', fim: '20:10' },
+      { inicio: '20:10', fim: '21:00' },
+    ]);
+    expect(result.horarios.map((h) => [h.dia, h.inicio])).toEqual([
+      ['segunda', '18:30'],
+      ['segunda', '19:20'],
+      ['quarta', '18:30'],
+    ]);
+    expect(result.horarios[0]).toEqual({
+      diaSemana: 2,
+      dia: 'segunda',
+      inicio: '18:30',
+      fim: '19:20',
+      idTurmaDisc: 48213,
+      idHorarioTurma: 90121,
+      codigo: 'PW2',
+      nome: 'Programação Web II',
+      turma: 'DS-2026-A',
+      subturma: null,
+      local: { predio: 'PRD1 - Prédio 1', bloco: '1 - Bloco A', sala: 'LAB3 - Laboratório 3' },
+      vigencia: { inicio: '2026-08-03', fim: '2026-12-18' },
+      urlAulaOnline: null,
+    });
+    expect(result.horarios[2]).toMatchObject({ subturma: 'SUBTURMA C', local: { predio: null, bloco: null, sala: null } });
+  });
+
+  it('reads DIASEMANA with 1 as Sunday and 7 as Saturday', async () => {
+    today('2026-10-29');
+    const { session } = sessionFor([aula('7', '08:00', '08:50'), aula('1', '08:00', '08:50')]);
+    const { horarios } = await runOperation(obterHorario, session, {});
+    expect(horarios.map((h) => [h.diaSemana, h.dia])).toEqual([
+      [1, 'domingo'],
+      [7, 'sabado'],
+    ]);
+  });
+
+  it('leaves out ended slots unless incluirEncerrados, and keeps a slot on its last day', async () => {
+    const rows = [
+      aula('2', '18:30', '19:20', { DATAINICIAL: '2026-08-03T00:00:00', DATAFINAL: '2026-09-30T00:00:00' }),
+      aula('3', '18:30', '19:20', { DATAINICIAL: '2026-08-03T00:00:00', DATAFINAL: '2026-10-29T00:00:00' }),
+      aula('4', '18:30', '19:20', { DATAINICIAL: null, DATAFINAL: null }),
+    ];
+    today('2026-10-29');
+    const { session } = sessionFor(rows);
+
+    const atuais = await runOperation(obterHorario, session, {});
+    expect(atuais.horarios.map((h) => h.dia)).toEqual(['terca', 'quarta']);
+    expect(atuais.horarios[1]!.vigencia).toBeNull();
+
+    const todos = await runOperation(obterHorario, session, { incluirEncerrados: true });
+    expect(todos.horarios.map((h) => h.dia)).toEqual(['segunda', 'terca', 'quarta']);
+  });
+
+  it('reports a class slot without its class ID, without echoing the values', async () => {
+    const secret = 'Nome Que Não Pode Vazar';
+    const { session } = sessionFor([aula('2', '18:30', '19:20', { IDTURMADISC: null, NOME: secret })]);
+    const error = await runOperation(obterHorario, session, {}).catch((e: unknown) => e);
+    expect(error).toMatchObject({ code: 'resposta_inesperada' });
+    expect((error as Error).message).toContain('SHorarioAluno.0.IDTURMADISC');
+    expect((error as Error).message).not.toContain(secret);
   });
 });
