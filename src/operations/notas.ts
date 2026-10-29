@@ -1,14 +1,7 @@
 import { z } from 'zod';
 import { codeLike } from '../core/schemas.js';
 import { defineOperation } from './define.js';
-
-/**
- * Assessment columns in `NotaEtapa` are named per stage, e.g. `1 - AV 1 / AV QT 1`
- * (ENDPOINTS.md 4.3). Every column with this shape is an assessment.
- */
-const ASSESSMENT_COLUMN = /^(\d+)\s*-\s*(.+)$/;
-const NUMERIC_VALUE = /^-?\d+(?:[.,]\d+)?$/;
-const assessmentValue = z.union([z.string(), z.number(), z.null()]);
+import { readStageColumns } from './stages.js';
 
 const avaliacaoSchema = z.object({
   etapa: z.number().int().describe('Número da etapa, o que vem antes do hífen no nome da coluna do portal.'),
@@ -17,16 +10,7 @@ const avaliacaoSchema = z.object({
   nota: z.number().nullable().describe('`valor` como número quando ele é numérico; senão `null`.'),
 });
 
-type Avaliacao = z.output<typeof avaliacaoSchema>;
-
-function toAvaliacao(etapa: number, nome: string, raw: string | number | null): Avaliacao {
-  if (typeof raw === 'number') return { etapa, nome, valor: String(raw), nota: raw };
-  const valor = raw?.trim() || null;
-  const nota = valor !== null && NUMERIC_VALUE.test(valor) ? Number(valor.replace(',', '.')) : null;
-  return { etapa, nome, valor, nota };
-}
-
-/** One `data.Notas[]` row: fixed fields plus one column per assessment. */
+/** One `data.Notas[]` row: fixed fields plus one column per assessment (`1 - AV 1 / AV QT 1`). */
 const upstreamRowSchema = z
   .looseObject({
     IDTURMADISC: z.number().int(),
@@ -35,28 +19,14 @@ const upstreamRowSchema = z
     CODTURMA: codeLike,
     SITUACAO: z.string().nullish(),
   })
-  .transform((row, ctx) => {
-    const avaliacoes: Avaliacao[] = [];
-    for (const [column, value] of Object.entries(row)) {
-      const match = ASSESSMENT_COLUMN.exec(column);
-      if (!match) continue;
-      const parsed = assessmentValue.safeParse(value);
-      if (!parsed.success) {
-        ctx.addIssue({ code: 'custom', path: [column], message: 'Expected a string, a number or null.', input: value });
-        continue;
-      }
-      avaliacoes.push(toAvaliacao(Number(match[1]), match[2]!.trim(), parsed.data));
-    }
-    avaliacoes.sort((a, b) => a.etapa - b.etapa);
-    return {
-      idTurmaDisc: row.IDTURMADISC,
-      codigo: row.CODDISC,
-      nome: row.DISCIPLINA,
-      turma: row.CODTURMA,
-      situacao: row.SITUACAO ?? null,
-      avaliacoes,
-    };
-  });
+  .transform((row, ctx) => ({
+    idTurmaDisc: row.IDTURMADISC,
+    codigo: row.CODDISC,
+    nome: row.DISCIPLINA,
+    turma: row.CODTURMA,
+    situacao: row.SITUACAO ?? null,
+    avaliacoes: readStageColumns(row, ctx).map(({ etapa, nome, valor, numero }) => ({ etapa, nome, valor, nota: numero })),
+  }));
 
 const upstreamSchema = z.looseObject({ Notas: z.array(upstreamRowSchema) });
 
