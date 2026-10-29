@@ -1,0 +1,68 @@
+/*
+ * Design tokens, from the design canvas (dark first, light as an alternative).
+ * `*-rgb` triplets are for translucent fills: rgb(var(--gold-rgb) / 0.1).
+ */
+:root,
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #050505;
+  --bg-panel: #070707;
+  --bg-card: #0a0a0a;
+  --bg-raised: #0c0c0c;
+  --bg-inset: #030303;
+  --field-bg: rgba(5, 5, 5, 0.5);
+  --topbar-bg: rgba(7, 7, 7, 0.85);
+  --text-1: #f2ecdd;
+  --text-2: #e8e2d4;
+  --text-3: #c4c5c0;
+  --text-4: #b4b5b0;
+  --text-5: #9a9b95;
+  --text-6: #8b8c86;
+  --gold: #c8a04a;
+  --ok: #6fb07a;
+  --err: #c45c5c;
+  --info: #5b8fa8;
+  --on-accent: #050505;
+  --gold-rgb: 200 160 74;
+  --ok-rgb: 111 176 122;
+  --err-rgb: 196 92 92;
+  --info-rgb: 91 143 168;
+  --neutral-rgb: 58 59 56;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg: #f4f1e9;
+  --bg-panel: #efebe1;
+  --bg-card: #fcfaf5;
+  --bg-raised: #ffffff;
+  --bg-inset: #f0ece1;
+  --field-bg: #ffffff;
+  --topbar-bg: rgba(255, 255, 255, 0.85);
+  --text-1: #17170f;
+  --text-2: #22221a;
+  --text-3: #33342e;
+  --text-4: #43443e;
+  --text-5: #55564f;
+  --text-6: #63645d;
+  --gold: #8a6d2f;
+  --ok: #3f7d4c;
+  --err: #a83a3a;
+  --info: #3f6e85;
+  --on-accent: #ffffff;
+  --gold-rgb: 138 109 47;
+  --ok-rgb: 63 125 76;
+  --err-rgb: 168 58 58;
+  --info-rgb: 63 110 133;
+  --neutral-rgb: 58 59 56;
+}
+
+:root {
+  --font-sans: 'Lexend', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --line: rgb(var(--neutral-rgb) / 0.55);
+  --line-soft: rgb(var(--neutral-rgb) / 0.35);
+  --line-strong: rgb(var(--neutral-rgb) / 0.75);
+  --radius: 14px;
+  --radius-sm: 8px;
+}
