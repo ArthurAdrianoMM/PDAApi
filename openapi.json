@@ -1,0 +1,926 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Portal do Aluno API",
+    "version": "0.1.0",
+    "description": "API somente leitura para os seus dados do Portal do Aluno do SENAI. Ela roda no seu computador (`portal-aluno serve`) e fala com o portal usando a sua conta. Nenhum outro servidor participa.\n\n**Autenticação:** cada execução do servidor gera um token novo e o mostra no terminal. Envie-o como `Authorization: Bearer <token>`. O link da documentação que o terminal mostra já traz o token.\n\nProjeto de aula, não oficial. Sem vínculo com o SENAI ou a FIEB.",
+    "x-portal": {
+      "url": "https://senaiweb6.fieb.org.br"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:4321",
+      "description": "Servidor local (`portal-aluno serve`)"
+    }
+  ],
+  "security": [
+    {
+      "tokenLocal": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Período",
+      "description": "Períodos e disciplinas. Base para os outros filtros."
+    },
+    {
+      "name": "Desempenho",
+      "description": "Notas, faltas e histórico."
+    }
+  ],
+  "paths": {
+    "/periodos": {
+      "get": {
+        "operationId": "listarPeriodos",
+        "tags": [
+          "Período"
+        ],
+        "summary": "Períodos",
+        "description": "Lista os períodos letivos da sua conta, na ordem em que o portal envia. O campo `selecionado` marca o período da matrícula que a sessão está usando.\n\n> [!NOTE]\n> **Qual período a sessão usa**\n>\n> Ao entrar, a sessão escolhe a matrícula com a data de início mais recente. Endpoints como `/notas` respondem sobre essa matrícula.\n\n> [!NOTE]\n> **De onde vêm os dados**\n>\n> O servidor local chama `TOTVSEducacional/Periodos` no portal. A resposta vai do portal para o seu computador e para mais nenhum lugar.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Períodos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "periodos": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "codigo": {
+                            "type": "string",
+                            "description": "Código do período, como no portal (ex.: `2026S2`)."
+                          },
+                          "id": {
+                            "type": "integer",
+                            "description": "ID do período no portal (`IDPERLET`)."
+                          },
+                          "selecionado": {
+                            "type": "boolean",
+                            "description": "Se é o período da matrícula que a sessão está usando."
+                          }
+                        },
+                        "required": [
+                          "codigo",
+                          "id",
+                          "selecionado"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "periodos"
+                  ],
+                  "additionalProperties": false
+                },
+                "example": {
+                  "periodos": [
+                    {
+                      "codigo": "2026S2",
+                      "id": 1042,
+                      "selecionado": true
+                    },
+                    {
+                      "codigo": "2026S1",
+                      "id": 1017,
+                      "selecionado": false
+                    },
+                    {
+                      "codigo": "2025S2",
+                      "id": 988,
+                      "selecionado": false
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`parametro_invalido`: Um parâmetro está faltando, sobrando ou com o tipo errado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "parametro_invalido": {
+                    "summary": "parametro_invalido",
+                    "value": {
+                      "erro": "parametro_invalido",
+                      "mensagem": "Um parâmetro está faltando, sobrando ou com o tipo errado."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`token_invalido`: O token local está ausente ou errado. Use o link ou o token que o terminal mostrou.\n\n`login_falhou`: O portal não completou o login. Confira o usuário e a senha.\n\n`sessao_expirada`: O portal recusou a sessão, e um novo login não resolveu.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "token_invalido": {
+                    "summary": "token_invalido",
+                    "value": {
+                      "erro": "token_invalido",
+                      "mensagem": "O token local está ausente ou errado. Use o link ou o token que o terminal mostrou."
+                    }
+                  },
+                  "login_falhou": {
+                    "summary": "login_falhou",
+                    "value": {
+                      "erro": "login_falhou",
+                      "mensagem": "O portal não completou o login. Confira o usuário e a senha."
+                    }
+                  },
+                  "sessao_expirada": {
+                    "summary": "sessao_expirada",
+                    "value": {
+                      "erro": "sessao_expirada",
+                      "mensagem": "O portal recusou a sessão, e um novo login não resolveu."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`portal_recusou`: O portal negou o acesso (HTTP 403). A API repassa a recusa e não tenta outro caminho.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "portal_recusou": {
+                    "summary": "portal_recusou",
+                    "value": {
+                      "erro": "portal_recusou",
+                      "mensagem": "O portal negou o acesso (HTTP 403). A API repassa a recusa e não tenta outro caminho."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`erro_interno`: Erro no servidor local. Veja o terminal onde ele está rodando.\n\n`configuracao_invalida`: A configuração não combina com o que o portal retornou (alias ou período).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "erro_interno": {
+                    "summary": "erro_interno",
+                    "value": {
+                      "erro": "erro_interno",
+                      "mensagem": "Erro no servidor local. Veja o terminal onde ele está rodando."
+                    }
+                  },
+                  "configuracao_invalida": {
+                    "summary": "configuracao_invalida",
+                    "value": {
+                      "erro": "configuracao_invalida",
+                      "mensagem": "A configuração não combina com o que o portal retornou (alias ou período)."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`sem_contexto`: O portal pediu um contexto de matrícula que a sessão não tem.\n\n`erro_do_portal`: O portal retornou um erro dentro da resposta.\n\n`resposta_inesperada`: A resposta do portal não tem o formato documentado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "sem_contexto": {
+                    "summary": "sem_contexto",
+                    "value": {
+                      "erro": "sem_contexto",
+                      "mensagem": "O portal pediu um contexto de matrícula que a sessão não tem."
+                    }
+                  },
+                  "erro_do_portal": {
+                    "summary": "erro_do_portal",
+                    "value": {
+                      "erro": "erro_do_portal",
+                      "mensagem": "O portal retornou um erro dentro da resposta."
+                    }
+                  },
+                  "resposta_inesperada": {
+                    "summary": "resposta_inesperada",
+                    "value": {
+                      "erro": "resposta_inesperada",
+                      "mensagem": "A resposta do portal não tem o formato documentado."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "`portal_indisponivel`: Não foi possível falar com o portal: sem conexão, tempo esgotado ou erro 5xx.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "portal_indisponivel": {
+                    "summary": "portal_indisponivel",
+                    "value": {
+                      "erro": "portal_indisponivel",
+                      "mensagem": "Não foi possível falar com o portal: sem conexão, tempo esgotado ou erro 5xx."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-upstream": [
+          "TOTVSEducacional/Periodos"
+        ]
+      }
+    },
+    "/disciplinas": {
+      "get": {
+        "operationId": "listarDisciplinas",
+        "tags": [
+          "Período"
+        ],
+        "summary": "Disciplinas do período",
+        "description": "Lista as disciplinas que o portal retorna para a matrícula da sessão. Cada uma traz o `idTurmaDisc` e a `subturma`, que os endpoints de aulas usam, e o `idPeriodo`.\n\n> [!NOTE]\n> **De onde vêm os dados**\n>\n> O servidor local chama `TOTVSEducacional/DisciplinasAlunoPeriodoLetivo` no portal. A resposta vai do portal para o seu computador e para mais nenhum lugar.",
+        "parameters": [
+          {
+            "name": "apenasEmCurso",
+            "in": "query",
+            "required": false,
+            "description": "Quando `true`, pede ao portal só as disciplinas em curso, como a página de Arquivos faz.",
+            "schema": {
+              "default": false,
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Disciplinas do período",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "disciplinas": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "idTurmaDisc": {
+                            "type": "integer",
+                            "description": "ID da turma da disciplina. É a chave para aulas, faltas e etapas."
+                          },
+                          "codigo": {
+                            "type": "string",
+                            "description": "Código da disciplina (`CODDISC`)."
+                          },
+                          "nome": {
+                            "type": "string",
+                            "description": "Nome da disciplina."
+                          },
+                          "turma": {
+                            "type": "string",
+                            "description": "Código da turma (`CODTURMA`)."
+                          },
+                          "subturma": {
+                            "description": "Código da subturma (`CODSUBTURMA`), ou `null` quando não há. As chamadas por aula precisam dele.",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "idPeriodo": {
+                            "type": "integer",
+                            "description": "ID do período (`IDPERLET`). Combina com `id` em `/periodos`."
+                          },
+                          "status": {
+                            "type": "object",
+                            "properties": {
+                              "codigo": {
+                                "type": "string",
+                                "description": "`CODSTATUS` do portal."
+                              },
+                              "descricao": {
+                                "description": "`DESCRICAO` do portal, o texto que acompanha o código.",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "codigo",
+                              "descricao"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "idTurmaDisc",
+                          "codigo",
+                          "nome",
+                          "turma",
+                          "subturma",
+                          "idPeriodo",
+                          "status"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "disciplinas"
+                  ],
+                  "additionalProperties": false
+                },
+                "example": {
+                  "disciplinas": [
+                    {
+                      "idTurmaDisc": 48213,
+                      "codigo": "PW2",
+                      "nome": "Programação Web II",
+                      "turma": "DS-2026-A",
+                      "subturma": null,
+                      "idPeriodo": 1042,
+                      "status": {
+                        "codigo": "1",
+                        "descricao": "Cursando"
+                      }
+                    },
+                    {
+                      "idTurmaDisc": 48230,
+                      "codigo": "BD1",
+                      "nome": "Banco de Dados I",
+                      "turma": "DS-2026-A",
+                      "subturma": "SUBTURMA C",
+                      "idPeriodo": 1042,
+                      "status": {
+                        "codigo": "1",
+                        "descricao": "Cursando"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`parametro_invalido`: Um parâmetro está faltando, sobrando ou com o tipo errado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "parametro_invalido": {
+                    "summary": "parametro_invalido",
+                    "value": {
+                      "erro": "parametro_invalido",
+                      "mensagem": "Um parâmetro está faltando, sobrando ou com o tipo errado."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`token_invalido`: O token local está ausente ou errado. Use o link ou o token que o terminal mostrou.\n\n`login_falhou`: O portal não completou o login. Confira o usuário e a senha.\n\n`sessao_expirada`: O portal recusou a sessão, e um novo login não resolveu.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "token_invalido": {
+                    "summary": "token_invalido",
+                    "value": {
+                      "erro": "token_invalido",
+                      "mensagem": "O token local está ausente ou errado. Use o link ou o token que o terminal mostrou."
+                    }
+                  },
+                  "login_falhou": {
+                    "summary": "login_falhou",
+                    "value": {
+                      "erro": "login_falhou",
+                      "mensagem": "O portal não completou o login. Confira o usuário e a senha."
+                    }
+                  },
+                  "sessao_expirada": {
+                    "summary": "sessao_expirada",
+                    "value": {
+                      "erro": "sessao_expirada",
+                      "mensagem": "O portal recusou a sessão, e um novo login não resolveu."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`portal_recusou`: O portal negou o acesso (HTTP 403). A API repassa a recusa e não tenta outro caminho.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "portal_recusou": {
+                    "summary": "portal_recusou",
+                    "value": {
+                      "erro": "portal_recusou",
+                      "mensagem": "O portal negou o acesso (HTTP 403). A API repassa a recusa e não tenta outro caminho."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`erro_interno`: Erro no servidor local. Veja o terminal onde ele está rodando.\n\n`configuracao_invalida`: A configuração não combina com o que o portal retornou (alias ou período).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "erro_interno": {
+                    "summary": "erro_interno",
+                    "value": {
+                      "erro": "erro_interno",
+                      "mensagem": "Erro no servidor local. Veja o terminal onde ele está rodando."
+                    }
+                  },
+                  "configuracao_invalida": {
+                    "summary": "configuracao_invalida",
+                    "value": {
+                      "erro": "configuracao_invalida",
+                      "mensagem": "A configuração não combina com o que o portal retornou (alias ou período)."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`sem_contexto`: O portal pediu um contexto de matrícula que a sessão não tem.\n\n`erro_do_portal`: O portal retornou um erro dentro da resposta.\n\n`resposta_inesperada`: A resposta do portal não tem o formato documentado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "sem_contexto": {
+                    "summary": "sem_contexto",
+                    "value": {
+                      "erro": "sem_contexto",
+                      "mensagem": "O portal pediu um contexto de matrícula que a sessão não tem."
+                    }
+                  },
+                  "erro_do_portal": {
+                    "summary": "erro_do_portal",
+                    "value": {
+                      "erro": "erro_do_portal",
+                      "mensagem": "O portal retornou um erro dentro da resposta."
+                    }
+                  },
+                  "resposta_inesperada": {
+                    "summary": "resposta_inesperada",
+                    "value": {
+                      "erro": "resposta_inesperada",
+                      "mensagem": "A resposta do portal não tem o formato documentado."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "`portal_indisponivel`: Não foi possível falar com o portal: sem conexão, tempo esgotado ou erro 5xx.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "portal_indisponivel": {
+                    "summary": "portal_indisponivel",
+                    "value": {
+                      "erro": "portal_indisponivel",
+                      "mensagem": "Não foi possível falar com o portal: sem conexão, tempo esgotado ou erro 5xx."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-upstream": [
+          "TOTVSEducacional/DisciplinasAlunoPeriodoLetivo"
+        ]
+      }
+    },
+    "/notas": {
+      "get": {
+        "operationId": "obterNotas",
+        "tags": [
+          "Desempenho"
+        ],
+        "summary": "Notas",
+        "description": "Retorna as notas de cada disciplina da matrícula que a sessão está usando, com uma entrada por avaliação. O período respondido vem em `periodo`.\n\n> [!WARNING]\n> **Avaliações mudam de nome**\n>\n> O portal manda cada avaliação como uma coluna com nome livre, como `1 - AV 1 / AV QT 1`. Aqui elas viram itens de `avaliacoes[]`: `etapa` é o número antes do hífen e `nome` o texto depois. Leia pelo `etapa`, nunca pela posição.\n\n> [!NOTE]\n> **Valor e nota**\n>\n> `valor` é o texto como o portal envia. `nota` é o mesmo valor como número quando ele é numérico (com vírgula ou ponto) e `null` nos outros casos, como avaliações ainda sem nota.\n\n> [!NOTE]\n> **De onde vêm os dados**\n>\n> O servidor local chama `TOTVSEducacional/NotaEtapa` no portal. A resposta vai do portal para o seu computador e para mais nenhum lugar.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Notas",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "periodo": {
+                      "type": "string",
+                      "description": "Código do período da matrícula da sessão (ex.: `2026S2`)."
+                    },
+                    "disciplinas": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "idTurmaDisc": {
+                            "type": "integer",
+                            "description": "ID da turma da disciplina. Combina com `/disciplinas`."
+                          },
+                          "codigo": {
+                            "type": "string",
+                            "description": "Código da disciplina (`CODDISC`)."
+                          },
+                          "nome": {
+                            "type": "string",
+                            "description": "Nome da disciplina."
+                          },
+                          "turma": {
+                            "type": "string",
+                            "description": "Código da turma (`CODTURMA`)."
+                          },
+                          "situacao": {
+                            "description": "Situação na disciplina, como o portal envia.",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "avaliacoes": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "etapa": {
+                                  "type": "integer",
+                                  "description": "Número da etapa, o que vem antes do hífen no nome da coluna do portal."
+                                },
+                                "nome": {
+                                  "type": "string",
+                                  "description": "Nome da avaliação, o texto depois do hífen (ex.: `AV 1 / AV QT 1`)."
+                                },
+                                "valor": {
+                                  "description": "O valor como o portal envia, ou `null` quando vazio.",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "nota": {
+                                  "description": "`valor` como número quando ele é numérico; senão `null`.",
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "etapa",
+                                "nome",
+                                "valor",
+                                "nota"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "description": "Uma por avaliação, em ordem de etapa."
+                          }
+                        },
+                        "required": [
+                          "idTurmaDisc",
+                          "codigo",
+                          "nome",
+                          "turma",
+                          "situacao",
+                          "avaliacoes"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "periodo",
+                    "disciplinas"
+                  ],
+                  "additionalProperties": false
+                },
+                "example": {
+                  "periodo": "2026S2",
+                  "disciplinas": [
+                    {
+                      "idTurmaDisc": 48213,
+                      "codigo": "PW2",
+                      "nome": "Programação Web II",
+                      "turma": "DS-2026-A",
+                      "situacao": "Cursando",
+                      "avaliacoes": [
+                        {
+                          "etapa": 1,
+                          "nome": "AV 1 / AV QT 1",
+                          "valor": "8,5",
+                          "nota": 8.5
+                        },
+                        {
+                          "etapa": 3,
+                          "nome": "AV 3 / AV QT 3",
+                          "valor": null,
+                          "nota": null
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`parametro_invalido`: Um parâmetro está faltando, sobrando ou com o tipo errado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "parametro_invalido": {
+                    "summary": "parametro_invalido",
+                    "value": {
+                      "erro": "parametro_invalido",
+                      "mensagem": "Um parâmetro está faltando, sobrando ou com o tipo errado."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`token_invalido`: O token local está ausente ou errado. Use o link ou o token que o terminal mostrou.\n\n`login_falhou`: O portal não completou o login. Confira o usuário e a senha.\n\n`sessao_expirada`: O portal recusou a sessão, e um novo login não resolveu.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "token_invalido": {
+                    "summary": "token_invalido",
+                    "value": {
+                      "erro": "token_invalido",
+                      "mensagem": "O token local está ausente ou errado. Use o link ou o token que o terminal mostrou."
+                    }
+                  },
+                  "login_falhou": {
+                    "summary": "login_falhou",
+                    "value": {
+                      "erro": "login_falhou",
+                      "mensagem": "O portal não completou o login. Confira o usuário e a senha."
+                    }
+                  },
+                  "sessao_expirada": {
+                    "summary": "sessao_expirada",
+                    "value": {
+                      "erro": "sessao_expirada",
+                      "mensagem": "O portal recusou a sessão, e um novo login não resolveu."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`portal_recusou`: O portal negou o acesso (HTTP 403). A API repassa a recusa e não tenta outro caminho.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "portal_recusou": {
+                    "summary": "portal_recusou",
+                    "value": {
+                      "erro": "portal_recusou",
+                      "mensagem": "O portal negou o acesso (HTTP 403). A API repassa a recusa e não tenta outro caminho."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`erro_interno`: Erro no servidor local. Veja o terminal onde ele está rodando.\n\n`configuracao_invalida`: A configuração não combina com o que o portal retornou (alias ou período).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "erro_interno": {
+                    "summary": "erro_interno",
+                    "value": {
+                      "erro": "erro_interno",
+                      "mensagem": "Erro no servidor local. Veja o terminal onde ele está rodando."
+                    }
+                  },
+                  "configuracao_invalida": {
+                    "summary": "configuracao_invalida",
+                    "value": {
+                      "erro": "configuracao_invalida",
+                      "mensagem": "A configuração não combina com o que o portal retornou (alias ou período)."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`sem_contexto`: O portal pediu um contexto de matrícula que a sessão não tem.\n\n`erro_do_portal`: O portal retornou um erro dentro da resposta.\n\n`resposta_inesperada`: A resposta do portal não tem o formato documentado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "sem_contexto": {
+                    "summary": "sem_contexto",
+                    "value": {
+                      "erro": "sem_contexto",
+                      "mensagem": "O portal pediu um contexto de matrícula que a sessão não tem."
+                    }
+                  },
+                  "erro_do_portal": {
+                    "summary": "erro_do_portal",
+                    "value": {
+                      "erro": "erro_do_portal",
+                      "mensagem": "O portal retornou um erro dentro da resposta."
+                    }
+                  },
+                  "resposta_inesperada": {
+                    "summary": "resposta_inesperada",
+                    "value": {
+                      "erro": "resposta_inesperada",
+                      "mensagem": "A resposta do portal não tem o formato documentado."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "`portal_indisponivel`: Não foi possível falar com o portal: sem conexão, tempo esgotado ou erro 5xx.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "portal_indisponivel": {
+                    "summary": "portal_indisponivel",
+                    "value": {
+                      "erro": "portal_indisponivel",
+                      "mensagem": "Não foi possível falar com o portal: sem conexão, tempo esgotado ou erro 5xx."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-upstream": [
+          "TOTVSEducacional/NotaEtapa"
+        ]
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "tokenLocal": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Token desta execução, mostrado no terminal por `portal-aluno serve`."
+      }
+    },
+    "schemas": {
+      "Erro": {
+        "type": "object",
+        "properties": {
+          "erro": {
+            "type": "string",
+            "enum": [
+              "configuracao_invalida",
+              "login_falhou",
+              "sessao_expirada",
+              "portal_recusou",
+              "sem_contexto",
+              "erro_do_portal",
+              "resposta_inesperada",
+              "portal_indisponivel",
+              "parametro_invalido",
+              "token_invalido",
+              "host_invalido",
+              "nao_encontrado",
+              "erro_interno"
+            ],
+            "description": "Código estável do erro."
+          },
+          "mensagem": {
+            "type": "string",
+            "description": "Explicação para pessoas."
+          },
+          "detalhes": {
+            "description": "Em `parametro_invalido`, um item por parâmetro com problema.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "campo": {
+                  "type": "string"
+                },
+                "mensagem": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "campo",
+                "mensagem"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "mensagensDoPortal": {
+            "description": "Mensagens que o próprio portal enviou, quando enviou.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "tipo": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "detalhe": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "tipo",
+                "detalhe"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "erro",
+          "mensagem"
+        ],
+        "additionalProperties": false
+      }
+    }
+  }
+}
