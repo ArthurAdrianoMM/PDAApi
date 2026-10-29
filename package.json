@@ -1,0 +1,48 @@
+{
+  "name": "portal-aluno",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Read-only local API for the SENAI Portal do Aluno (TOTVS RM Portal Educacional).",
+  "type": "module",
+  "bin": {
+    "portal-aluno": "dist/cli/main.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "npm run build:web && tsc -p tsconfig.build.json",
+    "build:web": "vite build --config web/vite.config.ts",
+    "serve": "npm run build:web && tsx src/cli/main.ts serve",
+    "dev:fake": "tsx scripts/fake-serve.ts",
+    "dev:web": "vite --config web/vite.config.ts",
+    "openapi": "tsx scripts/openapi.ts",
+    "try": "tsx scripts/try.ts",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p web",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@hono/node-server": "2.1.5",
+    "hono": "4.13.13",
+    "tough-cookie": "^6.0.2",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@fontsource/jetbrains-mono": "5.3.0",
+    "@fontsource/lexend": "5.3.0",
+    "@seriousme/openapi-schema-validator": "2.11.0",
+    "@types/node": "^22.20.5",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vite": "8.3.4",
+    "vitest": "^5.0.5"
+  }
+}
