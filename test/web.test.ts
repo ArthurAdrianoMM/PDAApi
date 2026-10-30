@@ -4,6 +4,7 @@ import { generateOpenApi } from '../src/openapi/generate.js';
 import { operations } from '../src/operations/index.js';
 import { tokenizeJson } from '../web/src/lib/json.js';
 import { parseBlocks, parseInline } from '../web/src/lib/markdown.js';
+import { loginHref, parseRoute, routeHref } from '../web/src/lib/route.js';
 import { buildSample, buildUrl } from '../web/src/lib/samples.js';
 import { flattenSchema } from '../web/src/lib/schema.js';
 import { searchOperations } from '../web/src/lib/search.js';
@@ -119,5 +120,30 @@ describe('search', () => {
     expect(searchOperations(model.operations, 'PERIODO').map((op) => op.id)).toContain('listarPeriodos');
     expect(searchOperations(model.operations, 'avaliacoes nota').map((op) => op.id)).toEqual(['obterNotas']);
     expect(searchOperations(model.operations, 'nada-disso')).toEqual([]);
+  });
+});
+
+describe('routes', () => {
+  it('round-trips operation and login routes', () => {
+    for (const route of [
+      { kind: 'inicio' },
+      { kind: 'operacao', id: 'listarNotas' },
+      { kind: 'entrar', voltar: '#/' },
+      { kind: 'entrar', voltar: '#/operacao/listarNotas' },
+    ] as const) {
+      expect(parseRoute(routeHref(route))).toEqual(route);
+    }
+  });
+
+  it('returns from the login screen to where it was opened', () => {
+    const href = loginHref({ kind: 'operacao', id: 'listarNotas' });
+    expect(parseRoute(href)).toEqual({ kind: 'entrar', voltar: '#/operacao/listarNotas' });
+    expect(loginHref(parseRoute(href))).toBe(href);
+  });
+
+  it('only returns to pages of the docs, never to another site or the login screen', () => {
+    for (const voltar of ['https%3A%2F%2Fsite.test', '%23%2Fentrar', '%E0%A4%A', 'javascript%3Aalert(1)']) {
+      expect(parseRoute(`#/entrar?voltar=${voltar}`)).toEqual({ kind: 'entrar', voltar: '#/' });
+    }
   });
 });

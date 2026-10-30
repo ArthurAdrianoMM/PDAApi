@@ -1,11 +1,27 @@
 import { useState, type FormEvent } from 'react';
 import type { DocOperation, Parameter } from '../lib/spec';
-import type { Connection } from '../state';
+import { loginHref, type Connection, type ConnectionState } from '../state';
 import { CopyButton } from './CopyButton';
-import { PlayIcon } from './Icons';
+import { PlayIcon, UserIcon } from './Icons';
 import { InlineText } from './Markdown';
 
 const SERVE_COMMAND = 'portal-aluno serve';
+
+/** Why the form is hidden, for each state that needs a login first. */
+const LOGIN_NEEDED: Partial<Record<ConnectionState, { title: string; text: string }>> = {
+  sem_token: {
+    title: 'Entre para testar com seus dados',
+    text: 'A documentação funciona sem conta. Para enviar requisições, entre com o usuário e a senha do portal.',
+  },
+  token_invalido: {
+    title: 'Seu acesso não vale mais',
+    text: 'O servidor reiniciou ou você entrou em outra aba. Entre de novo para continuar testando.',
+  },
+  sessao_expirada: {
+    title: 'A sessão no portal expirou',
+    text: 'O servidor não conseguiu entrar de novo sozinho. Entre outra vez com seu usuário e senha.',
+  },
+};
 
 function ParameterInput({ param, value, onChange }: { param: Parameter; value: string; onChange: (value: string) => void }) {
   const id = `param-${param.name}`;
@@ -59,7 +75,7 @@ interface TryItProps {
 
 export function TryIt({ operation, values, onValues, connection, sending, onSend, onClear }: TryItProps) {
   const [missing, setMissing] = useState<string[]>([]);
-  const { state, token } = connection;
+  const { state } = connection;
 
   if (state === 'somente_leitura') {
     return (
@@ -73,7 +89,28 @@ export function TryIt({ operation, values, onValues, connection, sending, onSend
             <code className="code-chip">{SERVE_COMMAND}</code>
             <CopyButton text={SERVE_COMMAND} />
           </div>
-          <p>Ele pede seu usuário e senha no terminal e abre esta documentação já conectada. A senha vai do seu computador direto para o portal.</p>
+          <p>Depois, entre com seu usuário e senha na documentação que ele serve. A senha vai do seu computador direto para o portal.</p>
+        </div>
+      </section>
+    );
+  }
+
+  const needed = LOGIN_NEEDED[state];
+  if (needed) {
+    return (
+      <section className="op-section" aria-labelledby="testar">
+        <h2 id="testar" className="overline">
+          Testar
+        </h2>
+        <div className="notice notice--warn" role={state === 'sem_token' ? undefined : 'alert'}>
+          <strong>{needed.title}</strong>
+          <p>{needed.text}</p>
+          <div className="actions">
+            <a className="btn btn--primary" href={loginHref({ kind: 'operacao', id: operation.id })}>
+              <UserIcon size={15} />
+              Entrar
+            </a>
+          </div>
         </div>
       </section>
     );
@@ -86,7 +123,7 @@ export function TryIt({ operation, values, onValues, connection, sending, onSend
     if (empty.length === 0) onSend();
   }
 
-  const canSend = Boolean(token) && state !== 'verificando' && !sending;
+  const canSend = state === 'conectado' && !sending;
   const calls = Math.max(operation.upstream.length, 1);
 
   return (
@@ -98,16 +135,6 @@ export function TryIt({ operation, values, onValues, connection, sending, onSend
         {operation.parameters.length === 0 && <span className="muted">Este endpoint não tem parâmetros.</span>}
       </div>
 
-      {state === 'sessao_expirada' && (
-        <div className="notice notice--warn" role="alert">
-          <strong>A sessão no portal expirou</strong>
-          <p>
-            O servidor tentou entrar de novo e não conseguiu. No terminal, pare o servidor (Ctrl+C) e rode{' '}
-            <code>{SERVE_COMMAND}</code> outra vez. A senha é pedida lá, nunca nesta página.
-          </p>
-        </div>
-      )}
-
       <form onSubmit={submit} noValidate>
         <div className="params">
           {operation.parameters.map((param) => (
@@ -118,26 +145,6 @@ export function TryIt({ operation, values, onValues, connection, sending, onSend
               onChange={(value) => onValues({ ...values, [param.name]: value })}
             />
           ))}
-          <div className="param">
-            <label htmlFor="token" className="param__label">
-              <code>Authorization</code>
-              <span className="param__meta">header · Bearer</span>
-            </label>
-            <input
-              id="token"
-              className="field"
-              type="password"
-              autoComplete="off"
-              value={token}
-              onChange={(e) => connection.setToken(e.target.value)}
-              placeholder="Cole o token do terminal"
-            />
-            <span className="param__help">
-              {state === 'token_invalido'
-                ? 'Este token não é o da execução atual. Use o link ou o token que o terminal mostrou por último.'
-                : 'Token desta execução, preenchido pelo link do terminal.'}
-            </span>
-          </div>
         </div>
 
         {missing.length > 0 && (

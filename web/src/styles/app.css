@@ -16,7 +16,7 @@ body {
 }
 
 a {
-  color: var(--gold);
+  color: var(--accent);
 }
 a:hover {
   color: var(--text-1);
@@ -29,7 +29,7 @@ kbd {
 }
 
 :focus-visible {
-  outline: 2px solid var(--gold);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -53,7 +53,7 @@ kbd {
   color: var(--text-5);
 }
 .overline--gold {
-  color: var(--gold);
+  color: var(--accent);
 }
 
 .btn {
@@ -123,9 +123,9 @@ kbd {
   background: rgb(var(--ok-rgb) / 0.08);
 }
 .pill--warn {
-  color: var(--gold);
-  border-color: rgb(var(--gold-rgb) / 0.4);
-  background: rgb(var(--gold-rgb) / 0.08);
+  color: var(--warn);
+  border-color: rgb(var(--warn-rgb) / 0.4);
+  background: rgb(var(--warn-rgb) / 0.08);
 }
 .pill--neutral {
   color: var(--text-5);
@@ -170,8 +170,8 @@ kbd {
 }
 .field:focus {
   outline: none;
-  border-color: rgb(var(--gold-rgb) / 0.65);
-  box-shadow: 0 0 0 3px rgb(var(--gold-rgb) / 0.14);
+  border-color: rgb(var(--accent-rgb) / 0.65);
+  box-shadow: 0 0 0 3px rgb(var(--accent-rgb) / 0.14);
 }
 
 .card {
@@ -220,9 +220,9 @@ kbd {
   color: var(--text-3);
 }
 .callout--warning {
-  background: rgb(var(--gold-rgb) / 0.08);
-  border-color: rgb(var(--gold-rgb) / 0.3);
-  color: var(--gold);
+  background: rgb(var(--warn-rgb) / 0.08);
+  border-color: rgb(var(--warn-rgb) / 0.3);
+  color: var(--warn);
 }
 .callout--note {
   background: rgb(var(--info-rgb) / 0.1);
@@ -307,8 +307,8 @@ kbd {
   color: var(--text-6);
 }
 .search:focus-within {
-  border-color: rgb(var(--gold-rgb) / 0.65);
-  box-shadow: 0 0 0 3px rgb(var(--gold-rgb) / 0.14);
+  border-color: rgb(var(--accent-rgb) / 0.65);
+  box-shadow: 0 0 0 3px rgb(var(--accent-rgb) / 0.14);
 }
 .search input {
   flex: 1;
@@ -396,15 +396,15 @@ kbd {
   transition: background 0.15s ease, color 0.15s ease;
 }
 .nav-item:hover {
-  background: rgb(var(--gold-rgb) / 0.07);
+  background: var(--hover-bg);
   color: var(--text-1);
 }
 .nav-item[aria-current='page'] {
-  background: rgb(var(--gold-rgb) / 0.13);
+  background: var(--select-bg);
   color: var(--text-1);
 }
 .nav-item[aria-current='page'] .method {
-  color: var(--gold);
+  color: var(--accent);
 }
 .sidebar__empty {
   margin: 0;
@@ -580,12 +580,19 @@ kbd {
   font-weight: 600;
 }
 .notice--warn {
-  background: rgb(var(--gold-rgb) / 0.08);
-  border: 1px solid rgb(var(--gold-rgb) / 0.3);
+  background: rgb(var(--warn-rgb) / 0.08);
+  border: 1px solid rgb(var(--warn-rgb) / 0.3);
 }
 .notice--dashed {
   background: var(--bg-inset);
   border: 1px dashed var(--line-strong);
+}
+.notice--error {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-2);
+  background: rgb(var(--err-rgb) / 0.1);
+  border: 1px solid rgb(var(--err-rgb) / 0.4);
 }
 
 .fields {
@@ -738,6 +745,13 @@ kbd {
   font-size: 13px;
   color: var(--text-5);
 }
+.code-panel__hint--token {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
 .status {
   display: inline-flex;
   align-items: center;
@@ -858,7 +872,7 @@ kbd {
 .step__number {
   font-family: var(--font-mono);
   font-size: 13px;
-  color: var(--gold);
+  color: var(--accent);
 }
 .step h3 {
   margin: 0;
@@ -891,8 +905,8 @@ kbd {
   background: var(--bg-raised);
 }
 .flow__node--local {
-  border-color: rgb(var(--gold-rgb) / 0.55);
-  background: rgb(var(--gold-rgb) / 0.07);
+  border-color: var(--local-border);
+  background: var(--local-bg);
 }
 .flow__node strong {
   font-weight: 500;
@@ -962,7 +976,7 @@ kbd {
   text-decoration: none;
 }
 .index__route:hover {
-  background: rgb(var(--gold-rgb) / 0.07);
+  background: var(--hover-bg);
 }
 .index__route code {
   font-size: 13px;
@@ -991,6 +1005,266 @@ kbd {
   margin: 0;
 }
 
+/* ── Account (top bar) ───────────────────────────────────── */
+
+.account {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.account__name {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.account__login {
+  position: relative;
+}
+.account__login--alert::after {
+  content: '';
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 0 2px var(--bg);
+}
+
+/* ── Login ───────────────────────────────────────────────── */
+
+.login {
+  position: relative;
+  display: flex;
+  min-height: 100vh;
+  overflow: hidden;
+  background: var(--login-main);
+}
+.login__side {
+  flex: 0 0 30%;
+  padding: 32px 40px;
+  background: var(--login-side);
+  border-right: 1px solid var(--line);
+}
+/* Mostly on the left half, crossing the line between the two. */
+.login__art {
+  position: absolute;
+  z-index: 1;
+  left: 30%;
+  top: 52%;
+  width: min(648px, 45vw);
+  transform: translate(-70%, -50%);
+  pointer-events: none;
+}
+.login__art img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.login__main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 96px 48px 64px max(48px, 14vw);
+}
+/* Positioned on the whole screen, so on a phone it sits in the top band. */
+.login__skip {
+  position: absolute;
+  z-index: 2;
+  top: 28px;
+  right: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  font-size: 14px;
+  color: var(--text-4);
+  text-decoration: none;
+}
+.login__skip:hover {
+  color: var(--text-1);
+}
+.login__panel {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+.login__head {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.login__head h1 {
+  margin: 0;
+  font-size: 34px;
+  line-height: 1.15;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-1);
+}
+.login__head p {
+  margin: 0;
+  color: var(--text-4);
+}
+.login__form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.login__field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.login__field label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-3);
+}
+.login__input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 50px;
+  padding: 0 4px 0 14px;
+  background: var(--field-bg);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  color: var(--text-5);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.login__input:focus-within {
+  border-color: rgb(var(--accent-rgb) / 0.7);
+  box-shadow: 0 0 0 3px rgb(var(--accent-rgb) / 0.14);
+}
+.login__input:has([aria-invalid='true']) {
+  border-color: rgb(var(--err-rgb) / 0.6);
+}
+.login__input svg {
+  flex: none;
+}
+.login__input input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0 10px 0 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-1);
+  font: inherit;
+}
+.login__input input::placeholder {
+  color: var(--text-6);
+}
+.login__reveal {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-5);
+  cursor: pointer;
+}
+.login__reveal:hover {
+  background: rgb(var(--neutral-rgb) / 0.25);
+  color: var(--text-1);
+}
+.login__remember {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+}
+.login__remember input {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.login__remember > span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 13px;
+  color: var(--text-5);
+}
+.login__remember strong {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-2);
+}
+.login__submit {
+  height: 50px;
+  margin-top: 4px;
+  border-radius: 10px;
+  font-size: 15px;
+}
+.login__note {
+  display: flex;
+  gap: 12px;
+  margin: 0;
+  padding-top: 22px;
+  border-top: 1px solid var(--line-soft);
+  font-size: 13px;
+  color: var(--text-5);
+}
+.login__note svg {
+  flex: none;
+  margin-top: 1px;
+}
+
+.spin {
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 760px) {
+  .login {
+    flex-direction: column;
+  }
+  .login__side {
+    flex: 0 0 200px;
+    padding: 20px 16px;
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+  }
+  .login__art {
+    left: 50%;
+    top: 200px;
+    width: 240px;
+    transform: translate(-50%, -78%);
+  }
+  .login__main {
+    align-items: flex-start;
+    padding: 88px 16px 40px;
+  }
+  .login__skip {
+    top: 8px;
+    right: 16px;
+  }
+  .login .brand__version {
+    display: none;
+  }
+}
+
 @media (max-width: 720px) {
   .topbar {
     position: static;
@@ -1014,5 +1288,8 @@ kbd {
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;
+  }
+  .spin {
+    animation-duration: 2.4s;
   }
 }

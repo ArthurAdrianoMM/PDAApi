@@ -39,9 +39,11 @@ interface CodePanelProps {
   operation: DocOperation;
   values: Record<string, string>;
   result: ApiResult | null;
+  /** The current login's token, offered for copying into the samples. */
+  token: string | null;
 }
 
-export function CodePanel({ model, operation, values, result }: CodePanelProps) {
+export function CodePanel({ model, operation, values, result, token }: CodePanelProps) {
   const [language, setLanguage] = useState<SampleLanguage>('curl');
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
   const url = buildUrl(model.serverUrl || location.origin, operation, values);
@@ -91,9 +93,18 @@ export function CodePanel({ model, operation, values, result }: CodePanelProps) 
       <pre id="code-sample" role="tabpanel" aria-labelledby={`tab-${language}`} className="code-panel__block" tabIndex={0}>
         {sample}
       </pre>
-      <p className="code-panel__hint">
-        <InlineText text={`Defina \`${TOKEN_VARIABLE}\` com o token que o terminal mostrou.`} />
-      </p>
+      <div className="code-panel__hint code-panel__hint--token">
+        <span>
+          <InlineText
+            text={
+              token
+                ? `Defina \`${TOKEN_VARIABLE}\` com o token da sua sessão.`
+                : `Defina \`${TOKEN_VARIABLE}\` com o token que você recebe ao entrar.`
+            }
+          />
+        </span>
+        {token && <CopyButton text={token} label="Copiar token" small />}
+      </div>
 
       <div className="code-panel__response" aria-live="polite">
         <div className="code-panel__head">

@@ -1,14 +1,14 @@
 import type { DocModel, DocOperation } from '../lib/spec';
-import { routeHref, type ConnectionState, type Route } from '../state';
+import { loginHref, routeHref, type ConnectionState, type Route } from '../state';
 import { LockIcon } from './Icons';
 import { InlineText } from './Markdown';
 
 const SESSION_TEXT: Record<ConnectionState, string> = {
   verificando: 'Verificando o servidor local…',
   conectado: 'A sessão com o portal fica só na memória do servidor, no seu terminal. Ctrl+C lá encerra e apaga.',
-  sem_token: 'Abra o link que o terminal mostrou ao rodar `portal-aluno serve`. Ele traz o token desta execução.',
-  token_invalido: 'O token não é o desta execução do servidor. Abra o link que o terminal mostrou por último.',
-  sessao_expirada: 'O portal encerrou a sessão e o servidor não conseguiu entrar de novo. Reinicie o servidor no terminal.',
+  sem_token: 'Você ainda não entrou. Dá para ler tudo; para testar com seus dados, entre com sua conta do portal.',
+  token_invalido: 'Seu acesso não vale mais: o servidor reiniciou ou você entrou em outra aba. Entre de novo.',
+  sessao_expirada: 'O portal encerrou a sessão e o servidor não conseguiu entrar de novo sozinho. Entre outra vez.',
   somente_leitura: 'Esta cópia não fala com o portal. Para testar com seus dados, rode `portal-aluno serve` no seu computador.',
 };
 
@@ -78,6 +78,11 @@ export function Sidebar({ model, route, results, connection }: SidebarProps) {
         <p>
           <InlineText text={SESSION_TEXT[connection]} />
         </p>
+        {(connection === 'sem_token' || connection === 'token_invalido' || connection === 'sessao_expirada') && (
+          <a className="btn btn--ghost btn--small" href={loginHref(route)}>
+            Entrar
+          </a>
+        )}
       </div>
       <p className="sidebar__note">Projeto de aula, não oficial. Sem vínculo com o SENAI ou a FIEB.</p>
     </nav>

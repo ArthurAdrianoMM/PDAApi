@@ -1,60 +1,115 @@
 /*
- * Design tokens, from the design canvas (dark first, light as an alternative).
+ * Design tokens, from the design canvas (Midnight Sky: dark first, light as an alternative).
  * `*-rgb` triplets are for translucent fills: rgb(var(--gold-rgb) / 0.1).
+ * `--gold` fills (primary button, brand mark, active tab); `--accent` is the
+ * accent as text (links, overlines, focus). They match in the dark theme only.
  */
 :root,
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --bg: #050505;
-  --bg-panel: #070707;
-  --bg-card: #0a0a0a;
-  --bg-raised: #0c0c0c;
-  --bg-inset: #030303;
-  --field-bg: rgba(5, 5, 5, 0.5);
-  --topbar-bg: rgba(7, 7, 7, 0.85);
-  --text-1: #f2ecdd;
-  --text-2: #e8e2d4;
-  --text-3: #c4c5c0;
-  --text-4: #b4b5b0;
-  --text-5: #9a9b95;
-  --text-6: #8b8c86;
-  --gold: #c8a04a;
-  --ok: #6fb07a;
-  --err: #c45c5c;
-  --info: #5b8fa8;
-  --on-accent: #050505;
-  --gold-rgb: 200 160 74;
-  --ok-rgb: 111 176 122;
-  --err-rgb: 196 92 92;
-  --info-rgb: 91 143 168;
-  --neutral-rgb: 58 59 56;
+  --bg: #07080c;
+  --bg-panel: #0a0c12;
+  --bg-card: #0d1017;
+  --bg-raised: #10131b;
+  --bg-inset: #050609;
+  --field-bg: rgba(5, 6, 9, 0.6);
+  --topbar-bg: rgba(10, 12, 18, 0.88);
+  /* Login screen halves; the illustration has no fills, so any color works. */
+  --login-side: #050609;
+  --login-main: #0a0c12;
+  --text-1: #f2eee3;
+  --text-2: #e3e5ea;
+  --text-3: #c3c7d0;
+  --text-4: #acb1bd;
+  --text-5: #8e94a3;
+  --text-6: #7e8596;
+  --gold: #fdc500;
+  --accent: #fdc500;
+  --warn: #fdc500;
+  --ok: #5fc38f;
+  --err: #ef7b7b;
+  --info: #6fa8ec;
+  --on-accent: #00296b;
+  --gold-rgb: 253 197 0;
+  --accent-rgb: 253 197 0;
+  --warn-rgb: 253 197 0;
+  --ok-rgb: 95 195 143;
+  --err-rgb: 239 123 123;
+  --info-rgb: 111 168 236;
+  --neutral-rgb: 52 60 80;
+  --select-bg: rgb(0 80 157 / 0.2);
+  --hover-bg: rgb(140 155 190 / 0.07);
+  --local-bg: rgb(0 63 136 / 0.14);
+  --local-border: rgb(0 80 157 / 0.5);
 }
 
 :root[data-theme='light'] {
   color-scheme: light;
-  --bg: #f4f1e9;
-  --bg-panel: #efebe1;
-  --bg-card: #fcfaf5;
-  --bg-raised: #ffffff;
-  --bg-inset: #f0ece1;
+  --bg: #eef2f9;
+  --bg-panel: #e1e8f5;
+  --bg-card: #ffffff;
+  --bg-raised: #f5f8fc;
+  --bg-inset: #e8eef8;
   --field-bg: #ffffff;
-  --topbar-bg: rgba(255, 255, 255, 0.85);
-  --text-1: #17170f;
-  --text-2: #22221a;
-  --text-3: #33342e;
-  --text-4: #43443e;
-  --text-5: #55564f;
-  --text-6: #63645d;
-  --gold: #8a6d2f;
-  --ok: #3f7d4c;
-  --err: #a83a3a;
-  --info: #3f6e85;
-  --on-accent: #ffffff;
-  --gold-rgb: 138 109 47;
-  --ok-rgb: 63 125 76;
-  --err-rgb: 168 58 58;
-  --info-rgb: 63 110 133;
-  --neutral-rgb: 58 59 56;
+  --topbar-bg: #0a1e4b;
+  /* The illustration's cream fills sit on these two. */
+  --login-side: #dce4f3;
+  --login-main: #eef2f9;
+  --text-1: #071a45;
+  --text-2: #0f2456;
+  --text-3: #26375f;
+  --text-4: #364569;
+  --text-5: #4b5878;
+  --text-6: #5a6687;
+  --gold: #fdc500;
+  --accent: #003f88;
+  --warn: #7a5a00;
+  --ok: #1f7a4d;
+  --err: #b43a3a;
+  --info: #00509d;
+  --on-accent: #00296b;
+  --gold-rgb: 253 197 0;
+  --accent-rgb: 0 63 136;
+  --warn-rgb: 190 145 0;
+  --ok-rgb: 31 122 77;
+  --err-rgb: 180 58 58;
+  --info-rgb: 0 80 157;
+  --neutral-rgb: 120 138 176;
+  --select-bg: rgb(0 80 157 / 0.13);
+  --hover-bg: rgb(0 80 157 / 0.07);
+  --local-bg: rgb(0 63 136 / 0.07);
+  --local-border: rgb(0 63 136 / 0.35);
+}
+
+/*
+ * In the light theme the top bar and the code panel stay navy, so they take
+ * light text and lines. The `--line*` tokens are redeclared because they are
+ * computed where they are declared.
+ */
+:root[data-theme='light'] .topbar,
+:root[data-theme='light'] .code-panel {
+  color-scheme: dark;
+  --text-1: #f4efdf;
+  --text-2: #e3e6ef;
+  --text-3: #d3d9e8;
+  --text-4: #b9c3db;
+  --text-5: #a9b4cf;
+  --text-6: #a9b4cf;
+  --field-bg: rgba(255, 255, 255, 0.07);
+  --accent: #fdc500;
+  --accent-rgb: 253 197 0;
+  --ok: #6fd39e;
+  --ok-rgb: 95 195 143;
+  --neutral-rgb: 169 180 207;
+  --line: rgb(169 180 207 / 0.26);
+  --line-soft: rgb(169 180 207 / 0.16);
+  --line-strong: rgb(169 180 207 / 0.42);
+}
+:root[data-theme='light'] .code-panel {
+  --bg-inset: #071740;
+  --info: #8fbcf2;
+  --err: #ff8f8f;
+  --err-rgb: 255 143 143;
 }
 
 :root {

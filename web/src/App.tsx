@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { LoginPage } from './components/LoginPage';
 import { OperationPage } from './components/OperationPage';
 import { Sidebar } from './components/Sidebar';
 import { StartPage } from './components/StartPage';
@@ -35,10 +36,12 @@ export function App() {
 
   const operation = model && route.kind === 'operacao' ? model.operations.find((op) => op.id === route.id) : undefined;
 
+  const isLogin = route.kind === 'entrar';
   useEffect(() => {
-    document.title = operation ? `${operation.summary} · Portal do Aluno API` : 'Portal do Aluno API';
+    const page = isLogin ? 'Entrar' : operation?.summary;
+    document.title = page ? `${page} · Portal do Aluno API` : 'Portal do Aluno API';
     window.scrollTo(0, 0);
-  }, [operation]);
+  }, [operation, isLogin]);
 
   if (loadError) {
     return (
@@ -58,6 +61,12 @@ export function App() {
     );
   }
 
+  if (route.kind === 'entrar') {
+    return (
+      <LoginPage title={model.title} version={model.version} theme={theme} connection={connection} voltar={route.voltar} />
+    );
+  }
+
   return (
     <>
       <TopBar
@@ -69,7 +78,8 @@ export function App() {
           const first = results?.[0];
           if (first) location.hash = routeHref({ kind: 'operacao', id: first.id });
         }}
-        connection={connection.state}
+        connection={connection}
+        route={route}
         theme={theme}
         onToggleTheme={toggleTheme}
       />

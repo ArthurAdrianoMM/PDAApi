@@ -1,5 +1,5 @@
 import type { DocModel } from '../lib/spec';
-import { routeHref } from '../state';
+import { loginHref, routeHref } from '../state';
 import { CopyButton } from './CopyButton';
 import { ArrowIcon } from './Icons';
 
@@ -7,9 +7,9 @@ const SERVE_COMMAND = 'portal-aluno serve';
 
 const PROMISES = [
   { title: 'Só leitura', text: 'Nenhuma rota altera nada no portal.' },
-  { title: 'Senha fica com você', text: 'Digitada no terminal e enviada só ao portal.' },
-  { title: 'Sessão na memória', text: 'Some quando você encerra o servidor.' },
-  { title: 'Token por execução', text: 'Outros sites abertos no navegador não conseguem usar a API.' },
+  { title: 'Senha fica com você', text: 'Vai só para o servidor local e dele para o portal. Nunca é salva.' },
+  { title: 'Sessão na memória', text: 'Some quando você sai ou encerra o servidor.' },
+  { title: 'Token por login', text: 'Outros sites abertos no navegador não conseguem usar a API.' },
 ];
 
 const hostOf = (url: string) => {
@@ -52,15 +52,22 @@ export function StartPage({ model }: { model: DocModel }) {
           </div>
           <div className="card step">
             <span className="step__number">02</span>
-            <h3>Entre pelo terminal</h3>
-            <p>Usuário e senha são pedidos lá, não no navegador. A senha não é salva em arquivo.</p>
-            <pre className="terminal">{'Usuário (RA): ••••••••\nSenha:\n✓ Conectado. Matrícula do período 2026S2.'}</pre>
+            <h3>Abra a documentação</h3>
+            <p>O terminal mostra o endereço. Sem entrar, dá para ler todos os endpoints e exemplos.</p>
+            <pre className="terminal">{`Documentação: http://${localHost}/docs/`}</pre>
           </div>
           <div className="card step">
             <span className="step__number">03</span>
-            <h3>Abra o link e teste</h3>
-            <p>O terminal mostra o endereço desta documentação com um token que vale só para essa execução.</p>
-            <pre className="terminal">{`Documentação:\nhttp://${localHost}/docs/#token=…`}</pre>
+            <h3>Entre e teste</h3>
+            <p>
+              Use o ícone no canto superior direito para entrar com o usuário e a senha do portal. Depois, cada endpoint
+              ganha o botão de enviar.
+            </p>
+            <div className="actions">
+              <a className="btn btn--primary btn--small" href={loginHref({ kind: 'inicio' })}>
+                Entrar
+              </a>
+            </div>
           </div>
         </div>
       </section>
@@ -71,7 +78,7 @@ export function StartPage({ model }: { model: DocModel }) {
           <div className="flow__node">
             <span className="overline">Seu navegador</span>
             <strong>Esta documentação</strong>
-            <span>Envia o token local. Nunca vê a senha.</span>
+            <span>Envia a senha uma vez ao servidor local; depois, só o token.</span>
           </div>
           <ArrowIcon />
           <div className="flow__node flow__node--local">

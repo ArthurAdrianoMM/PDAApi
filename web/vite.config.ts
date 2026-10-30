@@ -16,7 +16,8 @@ export default defineConfig({
     sourcemap: true,
   },
   server: {
-    // Everything outside /docs/ is the API: forward it to the local server.
-    proxy: { '^/(?!docs(/|$))': { target: API_TARGET, changeOrigin: true } },
+    // Everything outside /docs/ is the API: forward it to the local server, which
+    // accepts a login only from its own origin.
+    proxy: { '^/(?!docs(/|$))': { target: API_TARGET, changeOrigin: true, headers: { origin: API_TARGET } } },
   },
 });

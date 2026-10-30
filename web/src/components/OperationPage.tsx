@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { buildUrl } from '../lib/samples';
 import { flattenSchema } from '../lib/schema';
 import type { DocModel, DocOperation } from '../lib/spec';
-import { routeHref, type Connection } from '../state';
+import { errorCodeOf, routeHref, type Connection } from '../state';
 import { CodePanel, type ApiResult } from './CodePanel';
 import { CopyButton } from './CopyButton';
 import { InlineText, Markdown } from './Markdown';
@@ -27,10 +27,6 @@ function FieldPath({ path }: { path: string }) {
       ))}
     </code>
   );
-}
-
-function errorCodeOf(body: unknown): string | null {
-  return typeof body === 'object' && body !== null && 'erro' in body ? String(body.erro) : null;
 }
 
 export function OperationPage({ model, operation, connection }: OperationPageProps) {
@@ -145,7 +141,13 @@ export function OperationPage({ model, operation, connection }: OperationPagePro
           </section>
         </article>
 
-        <CodePanel model={model} operation={operation} values={values} result={result} />
+        <CodePanel
+          model={model}
+          operation={operation}
+          values={values}
+          result={result}
+          token={connection.state === 'conectado' ? connection.token : null}
+        />
       </div>
 
       <nav className="pager" aria-label="Navegação entre endpoints">
