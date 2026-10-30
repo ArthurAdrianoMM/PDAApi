@@ -26,7 +26,15 @@ npm run serve                     # builds the docs page, then serves; or: npm r
 npm run serve -- --port 5000 --period 2026S1
 ```
 
-It asks for your user and password in the terminal (the password is not echoed), or reads `PORTAL_ALUNO_USER` and `PORTAL_ALUNO_PASSWORD`. Then it prints:
+It prints the docs address. The page works without an account: every endpoint, schema and example is there. To send requests with your data, click the user icon in the top right and log in with your portal user and password. "Lembrar de mim" keeps you logged in in this browser until the server restarts; without it, the login lasts for this tab only.
+
+```
+Documentação: http://127.0.0.1:4321/docs/
+```
+
+From other tools, log in with `POST /sessao` (`{"usuario": "…", "senha": "…"}` as JSON) and send the returned token as `Authorization: Bearer <token>`. The docs page also has a "Copiar token" button. A new login, a logout (`DELETE /sessao`) or a restart invalidates the previous token.
+
+With `PORTAL_ALUNO_USER` and `PORTAL_ALUNO_PASSWORD` set, the server logs in at startup instead and prints a link that already carries the token:
 
 ```
 ✓ Conectado. Matrícula do período 2026S2.
@@ -35,16 +43,16 @@ Documentação: http://127.0.0.1:4321/docs/#token=…
 Token:        …
 ```
 
-Open the link: the page already carries the token, so "Enviar requisição" works right away. From other tools, send `Authorization: Bearer <token>`. The token changes on every run.
-
 ## How the local server stays local
 
 - It listens on `127.0.0.1` only.
-- Every API route needs the per-run token. `/docs`, `/openapi.json` and `/health` don't, and none of them carry personal data.
+- Every API route needs the token of the current login. `/docs`, `/openapi.json` and `/health` don't, and none of them carry personal data.
+- The login route (`POST /sessao`) takes JSON only and refuses requests whose `Origin` is not this server, so another site open in the browser can't log you in or out of an account.
 - It answers only when the `Host` header is `127.0.0.1:<port>` or `localhost:<port>`, which blocks DNS-rebinding attacks.
 - It sends no CORS headers, so other sites open in your browser can't read its responses.
 - The docs page is built into `dist/web` and served by this server, fonts included (no CDN). Its Content-Security-Policy allows scripts, styles and requests only to this server, with no inline code.
-- The token reaches the page in the link's `#hash`, which browsers never send to servers. The page keeps it in `sessionStorage` (this tab only) and removes it from the address bar.
+- The password goes from the page to this server and from here to the portal only. The server keeps it in memory, to log in again when the portal expires the session; it is never written to disk or logged.
+- The page keeps the token in `sessionStorage` (this tab only), or in `localStorage` when "Lembrar de mim" is ticked. A token from the startup link reaches the page in the `#hash`, which browsers never send to servers, and is removed from the address bar.
 - The request log has method, path, status and time. No query strings, no bodies.
 
 ## Development
@@ -61,6 +69,7 @@ Work on the docs page without logging in to the real portal:
 ```sh
 npm run dev:fake    # the real server against the fake portal (made-up data), token "dev"
 npm run dev:web     # in another terminal: the page with hot reload, at http://localhost:5173/docs/#token=dev
+                    # the login screen accepts the fake account: aluno.teste / s3nha&com=símbolos
 ```
 
 Run one operation against the real portal, without the server:
@@ -88,7 +97,7 @@ src/
     errors.ts      PortalError and its codes
   operations/    one file per endpoint of this API: docs, schemas, handler
   openapi/       builds the OpenAPI document from the operations
-  http/          the local server (Hono): routes, token, errors, docs page
+  http/          the local server (Hono): routes, login and token, errors, docs page
   cli/           `portal-aluno` command and terminal prompts
 web/             the docs page (React + Vite). Reads /openapi.json; knows nothing else about the API
   src/lib/       pure logic: spec model, Markdown subset, fields, samples, search (tested in test/web.test.ts)
@@ -108,7 +117,7 @@ test/            Vitest, with an in-memory fake portal (test/support)
 ## Rules the code follows
 
 - Only GET requests to the API. Never `Logout` or `Contexto/Selecao`.
-- The password is only sent to the configured portal origin, and the core never stores it. It's asked for through the credentials provider whenever a login is needed.
+- The password is only sent to the configured portal origin, and the core never stores it. It's asked for through the credentials provider whenever a login is needed; the local server's provider holds it in memory for the life of the login.
 - Cookies live in memory. Nothing is written to disk or logged.
 - Error messages name fields and types, never values from the portal.
 - If the portal refuses a request (403), the error is passed on. There is no retry another way.

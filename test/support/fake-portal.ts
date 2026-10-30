@@ -5,7 +5,7 @@
  */
 import { setTimeout as sleep } from 'node:timers/promises';
 import type { FetchFn } from '../../src/core/http.js';
-import { PortalSession } from '../../src/core/index.js';
+import { PortalSession, type Credentials } from '../../src/core/index.js';
 
 export const ORIGIN = 'https://portal.test';
 export const API = '/FrameHTML/RM/API/';
@@ -166,13 +166,19 @@ export function academicRoute(expectedContextId: string, data: unknown): DataRou
   };
 }
 
-/** A PortalSession wired to a fresh fake portal, with no request spacing. */
-export function createTestSession(options: FakePortalOptions = {}) {
-  const portal = createFakePortal(options);
-  const session = new PortalSession({
-    credentials: async () => ({ user: USER, password: PASSWORD }),
+export type FakePortal = ReturnType<typeof createFakePortal>;
+
+/** A PortalSession that logs in to this fake portal with these credentials, with no request spacing. */
+export function fakeSession(portal: FakePortal, credentials: Credentials = { user: USER, password: PASSWORD }) {
+  return new PortalSession({
+    credentials: async () => credentials,
     fetch: portal.fetch,
     config: { baseUrl: ORIGIN, minRequestIntervalMs: 0 },
   });
-  return { portal, session };
+}
+
+/** A PortalSession wired to a fresh fake portal. */
+export function createTestSession(options: FakePortalOptions = {}) {
+  const portal = createFakePortal(options);
+  return { portal, session: fakeSession(portal) };
 }

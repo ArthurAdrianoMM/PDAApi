@@ -21,13 +21,13 @@ The student who owns the account (the project author). It is not for other stude
 - **No payment or card endpoints.** These handle payment data and are out of scope for a read-only API.
 - **No writes.** No changing passwords, profile data, enrollments, or payment state.
 - **No guessed IDs or enumeration.** IDs come from the portal's own responses (for example, the current-user response), never from trying numbers in a sequence.
-- **No credentials in code or files.** Passwords and tokens are read from environment variables or prompted at runtime, and are never committed or logged.
+- **No credentials in code or files.** Passwords are typed into the local docs page or read from environment variables, and are never committed, logged or written to disk.
 - **No bypassing access controls.** If the portal refuses a request, the API reports the refusal. It does not retry with other methods or tokens.
 - **No hardcoded portal client secret.** The frontend's client credential is visible in public JavaScript. The API should take it from configuration, not embed it.
 
 ## How the API will behave
 
-- Hold the session in memory. Do not write tokens to disk.
+- Hold the portal session in memory. Do not write portal tokens or cookies to disk. The one exception is the local API token, which the browser keeps in `localStorage` only when the student ticks "Lembrar de mim"; it opens nothing once the server restarts.
 - Keep request volume close to what one student's browser would make.
 - Mask personal values (name, CPF, address, contact details) in logs and examples.
 

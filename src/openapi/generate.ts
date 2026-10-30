@@ -24,8 +24,9 @@ export interface OpenApiOptions {
 const API_DESCRIPTION = [
   'API somente leitura para os seus dados do Portal do Aluno do SENAI. Ela roda no seu computador ' +
     '(`portal-aluno serve`) e fala com o portal usando a sua conta. Nenhum outro servidor participa.',
-  '**Autenticação:** cada execução do servidor gera um token novo e o mostra no terminal. ' +
-    'Envie-o como `Authorization: Bearer <token>`. O link da documentação que o terminal mostra já traz o token.',
+  '**Autenticação:** entre com o usuário e a senha do portal na documentação (`/docs/`), ou envie ' +
+    '`POST /sessao` com `{"usuario", "senha"}` em JSON. A resposta traz um token; envie-o como ' +
+    '`Authorization: Bearer <token>`. Um novo login invalida o token anterior.',
   'Projeto de aula, não oficial. Sem vínculo com o SENAI ou a FIEB.',
 ].join('\n\n');
 
@@ -145,7 +146,7 @@ export function generateOpenApi(options: OpenApiOptions = {}): OpenApiDocument {
         [SECURITY_SCHEME]: {
           type: 'http',
           scheme: 'bearer',
-          description: 'Token desta execução, mostrado no terminal por `portal-aluno serve`.',
+          description: 'Token do login atual, devolvido por `POST /sessao`.',
         },
       },
       schemas: { Erro: jsonSchema(apiErrorSchema, 'output') },

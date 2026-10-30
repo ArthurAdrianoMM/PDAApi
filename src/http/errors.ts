@@ -4,8 +4,9 @@ import { PORTAL_ERROR_CODES, isPortalError, type PortalErrorCode } from '../core
 /** Errors raised by the local server itself, not by the portal. */
 export const LOCAL_ERROR_CODES = {
   parametro_invalido: 'Um parâmetro está faltando, sobrando ou com o tipo errado.',
-  token_invalido: 'O token local está ausente ou errado. Use o link ou o token que o terminal mostrou.',
+  token_invalido: 'O token local está ausente ou errado. Entre de novo pela documentação (/docs/) para receber um novo.',
   host_invalido: 'O cabeçalho Host não é o endereço local deste servidor.',
+  origem_invalida: 'O login só é aceito a partir da documentação servida por este servidor.',
   nao_encontrado: 'Esta rota não existe.',
   erro_interno: 'Erro no servidor local. Veja o terminal onde ele está rodando.',
 } as const;
@@ -21,6 +22,7 @@ export const ERROR_STATUS = {
   sessao_expirada: 401,
   portal_recusou: 403,
   host_invalido: 403,
+  origem_invalida: 403,
   nao_encontrado: 404,
   configuracao_invalida: 500,
   erro_interno: 500,

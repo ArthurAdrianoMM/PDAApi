@@ -3,7 +3,7 @@
   "info": {
     "title": "Portal do Aluno API",
     "version": "0.1.0",
-    "description": "API somente leitura para os seus dados do Portal do Aluno do SENAI. Ela roda no seu computador (`portal-aluno serve`) e fala com o portal usando a sua conta. Nenhum outro servidor participa.\n\n**Autenticação:** cada execução do servidor gera um token novo e o mostra no terminal. Envie-o como `Authorization: Bearer <token>`. O link da documentação que o terminal mostra já traz o token.\n\nProjeto de aula, não oficial. Sem vínculo com o SENAI ou a FIEB.",
+    "description": "API somente leitura para os seus dados do Portal do Aluno do SENAI. Ela roda no seu computador (`portal-aluno serve`) e fala com o portal usando a sua conta. Nenhum outro servidor participa.\n\n**Autenticação:** entre com o usuário e a senha do portal na documentação (`/docs/`), ou envie `POST /sessao` com `{\"usuario\", \"senha\"}` em JSON. A resposta traz um token; envie-o como `Authorization: Bearer <token>`. Um novo login invalida o token anterior.\n\nProjeto de aula, não oficial. Sem vínculo com o SENAI ou a FIEB.",
     "x-portal": {
       "url": "https://senaiweb6.fieb.org.br"
     }
@@ -125,7 +125,7 @@
             }
           },
           "401": {
-            "description": "`token_invalido`: O token local está ausente ou errado. Use o link ou o token que o terminal mostrou.\n\n`login_falhou`: O portal não completou o login. Confira o usuário e a senha.\n\n`sessao_expirada`: O portal recusou a sessão, e um novo login não resolveu.",
+            "description": "`token_invalido`: O token local está ausente ou errado. Entre de novo pela documentação (/docs/) para receber um novo.\n\n`login_falhou`: O portal não completou o login. Confira o usuário e a senha.\n\n`sessao_expirada`: O portal recusou a sessão, e um novo login não resolveu.",
             "content": {
               "application/json": {
                 "schema": {
@@ -136,7 +136,7 @@
                     "summary": "token_invalido",
                     "value": {
                       "erro": "token_invalido",
-                      "mensagem": "O token local está ausente ou errado. Use o link ou o token que o terminal mostrou."
+                      "mensagem": "O token local está ausente ou errado. Entre de novo pela documentação (/docs/) para receber um novo."
                     }
                   },
                   "login_falhou": {
@@ -411,7 +411,7 @@
             }
           },
           "401": {
-            "description": "`token_invalido`: O token local está ausente ou errado. Use o link ou o token que o terminal mostrou.\n\n`login_falhou`: O portal não completou o login. Confira o usuário e a senha.\n\n`sessao_expirada`: O portal recusou a sessão, e um novo login não resolveu.",
+            "description": "`token_invalido`: O token local está ausente ou errado. Entre de novo pela documentação (/docs/) para receber um novo.\n\n`login_falhou`: O portal não completou o login. Confira o usuário e a senha.\n\n`sessao_expirada`: O portal recusou a sessão, e um novo login não resolveu.",
             "content": {
               "application/json": {
                 "schema": {
@@ -422,7 +422,7 @@
                     "summary": "token_invalido",
                     "value": {
                       "erro": "token_invalido",
-                      "mensagem": "O token local está ausente ou errado. Use o link ou o token que o terminal mostrou."
+                      "mensagem": "O token local está ausente ou errado. Entre de novo pela documentação (/docs/) para receber um novo."
                     }
                   },
                   "login_falhou": {
@@ -701,7 +701,7 @@
             }
           },
           "401": {
-            "description": "`token_invalido`: O token local está ausente ou errado. Use o link ou o token que o terminal mostrou.\n\n`login_falhou`: O portal não completou o login. Confira o usuário e a senha.\n\n`sessao_expirada`: O portal recusou a sessão, e um novo login não resolveu.",
+            "description": "`token_invalido`: O token local está ausente ou errado. Entre de novo pela documentação (/docs/) para receber um novo.\n\n`login_falhou`: O portal não completou o login. Confira o usuário e a senha.\n\n`sessao_expirada`: O portal recusou a sessão, e um novo login não resolveu.",
             "content": {
               "application/json": {
                 "schema": {
@@ -712,7 +712,7 @@
                     "summary": "token_invalido",
                     "value": {
                       "erro": "token_invalido",
-                      "mensagem": "O token local está ausente ou errado. Use o link ou o token que o terminal mostrou."
+                      "mensagem": "O token local está ausente ou errado. Entre de novo pela documentação (/docs/) para receber um novo."
                     }
                   },
                   "login_falhou": {
@@ -1034,7 +1034,7 @@
             }
           },
           "401": {
-            "description": "`token_invalido`: O token local está ausente ou errado. Use o link ou o token que o terminal mostrou.\n\n`login_falhou`: O portal não completou o login. Confira o usuário e a senha.\n\n`sessao_expirada`: O portal recusou a sessão, e um novo login não resolveu.",
+            "description": "`token_invalido`: O token local está ausente ou errado. Entre de novo pela documentação (/docs/) para receber um novo.\n\n`login_falhou`: O portal não completou o login. Confira o usuário e a senha.\n\n`sessao_expirada`: O portal recusou a sessão, e um novo login não resolveu.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1045,7 +1045,7 @@
                     "summary": "token_invalido",
                     "value": {
                       "erro": "token_invalido",
-                      "mensagem": "O token local está ausente ou errado. Use o link ou o token que o terminal mostrou."
+                      "mensagem": "O token local está ausente ou errado. Entre de novo pela documentação (/docs/) para receber um novo."
                     }
                   },
                   "login_falhou": {
@@ -1401,7 +1401,7 @@
             }
           },
           "401": {
-            "description": "`token_invalido`: O token local está ausente ou errado. Use o link ou o token que o terminal mostrou.\n\n`login_falhou`: O portal não completou o login. Confira o usuário e a senha.\n\n`sessao_expirada`: O portal recusou a sessão, e um novo login não resolveu.",
+            "description": "`token_invalido`: O token local está ausente ou errado. Entre de novo pela documentação (/docs/) para receber um novo.\n\n`login_falhou`: O portal não completou o login. Confira o usuário e a senha.\n\n`sessao_expirada`: O portal recusou a sessão, e um novo login não resolveu.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1412,7 +1412,7 @@
                     "summary": "token_invalido",
                     "value": {
                       "erro": "token_invalido",
-                      "mensagem": "O token local está ausente ou errado. Use o link ou o token que o terminal mostrou."
+                      "mensagem": "O token local está ausente ou errado. Entre de novo pela documentação (/docs/) para receber um novo."
                     }
                   },
                   "login_falhou": {
@@ -1802,7 +1802,7 @@
             }
           },
           "401": {
-            "description": "`token_invalido`: O token local está ausente ou errado. Use o link ou o token que o terminal mostrou.\n\n`login_falhou`: O portal não completou o login. Confira o usuário e a senha.\n\n`sessao_expirada`: O portal recusou a sessão, e um novo login não resolveu.",
+            "description": "`token_invalido`: O token local está ausente ou errado. Entre de novo pela documentação (/docs/) para receber um novo.\n\n`login_falhou`: O portal não completou o login. Confira o usuário e a senha.\n\n`sessao_expirada`: O portal recusou a sessão, e um novo login não resolveu.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1813,7 +1813,7 @@
                     "summary": "token_invalido",
                     "value": {
                       "erro": "token_invalido",
-                      "mensagem": "O token local está ausente ou errado. Use o link ou o token que o terminal mostrou."
+                      "mensagem": "O token local está ausente ou errado. Entre de novo pela documentação (/docs/) para receber um novo."
                     }
                   },
                   "login_falhou": {
@@ -1943,7 +1943,7 @@
       "tokenLocal": {
         "type": "http",
         "scheme": "bearer",
-        "description": "Token desta execução, mostrado no terminal por `portal-aluno serve`."
+        "description": "Token do login atual, devolvido por `POST /sessao`."
       }
     },
     "schemas": {
@@ -1964,6 +1964,7 @@
               "parametro_invalido",
               "token_invalido",
               "host_invalido",
+              "origem_invalida",
               "nao_encontrado",
               "erro_interno"
             ],

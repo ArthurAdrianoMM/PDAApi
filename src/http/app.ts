@@ -1,12 +1,13 @@
 /**
  * The local HTTP API. Every route is generated from the operation definitions.
  *
- * Meant to listen on 127.0.0.1 only. API routes need the per-run bearer token;
- * the Host check blocks DNS rebinding; there are no CORS headers, so other
- * sites open in the browser cannot read responses.
+ * Meant to listen on 127.0.0.1 only. API routes need the bearer token of the
+ * current login (POST /sessao); the Host check blocks DNS rebinding; the login
+ * route refuses other origins; there are no CORS headers, so other sites open
+ * in the browser cannot read responses.
  */
-import { createHash, timingSafeEqual } from 'node:crypto';
-import { Hono, type Context, type MiddlewareHandler } from 'hono';
+import { Hono, type Context } from 'hono';
+import { z } from 'zod';
 import type { PortalSession } from '../core/index.js';
 import { generateOpenApi } from '../openapi/generate.js';
 import { operations as allOperations, runOperation, type Operation } from '../operations/index.js';
@@ -14,11 +15,15 @@ import { VERSION } from '../version.js';
 import { registerDocs } from './docs.js';
 import { ERROR_STATUS, apiError, toApiError, type ApiError, type ApiErrorCode } from './errors.js';
 import { readInput, toRoutePath } from './input.js';
+import { LocalLogin, type OpenSession } from './login.js';
 
 export interface AppOptions {
-  session: PortalSession;
-  /** Per-run secret clients send as `Authorization: Bearer <token>`. */
-  token: string;
+  /** Creates the portal session for a login made through POST /sessao. */
+  openSession: OpenSession;
+  /** A session already logged in when the server starts (credentials from the environment), and its token. */
+  initial?: { session: PortalSession; token: string };
+  /** The portal origin, shown in the OpenAPI document. */
+  portalUrl: string;
   /** The port the server listens on; used for the Host check and the OpenAPI server URL. */
   port: number;
   operations?: readonly Operation[];
@@ -28,18 +33,33 @@ export interface AppOptions {
   docsDir?: string;
 }
 
-const digest = (value: string) => createHash('sha256').update(value).digest();
+const loginBodySchema = z.strictObject({
+  usuario: z.string().trim().min(1, 'Informe o usuário.'),
+  senha: z.string().min(1, 'Informe a senha.'),
+});
+
+function bearer(c: Context): string | null {
+  return /^Bearer\s+(\S+)$/i.exec(c.req.header('authorization') ?? '')?.[1] ?? null;
+}
+
+function hostOf(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return '';
+  }
+}
 
 function sendError(c: Context, code: ApiErrorCode, body: ApiError = apiError(code)) {
   return c.json(body, ERROR_STATUS[code]);
 }
 
 export function createApp(options: AppOptions): Hono {
-  const { session, port, log } = options;
+  const { port, log } = options;
   const operations = options.operations ?? allOperations;
-  const tokenDigest = digest(options.token);
+  const login = new LocalLogin(options.openSession, options.initial);
   const allowedHosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`]);
-  const openApi = generateOpenApi({ serverUrl: `http://127.0.0.1:${port}`, portalUrl: session.config.baseUrl, operations });
+  const openApi = generateOpenApi({ serverUrl: `http://127.0.0.1:${port}`, portalUrl: options.portalUrl, operations });
 
   const app = new Hono();
 
@@ -57,18 +77,39 @@ export function createApp(options: AppOptions): Hono {
     if (!c.res.headers.has('Cache-Control')) c.header('Cache-Control', 'no-store');
   });
 
-  const requireToken: MiddlewareHandler = async (c, next) => {
-    const match = /^Bearer\s+(\S+)$/i.exec(c.req.header('authorization') ?? '');
-    if (!match || !timingSafeEqual(digest(match[1]!), tokenDigest)) return sendError(c, 'token_invalido');
-    await next();
-  };
-
   app.get('/health', (c) => c.json({ status: 'ok', versao: VERSION }));
   app.get('/openapi.json', (c) => c.json(openApi));
   registerDocs(app, options.docsDir);
 
+  // Login. The password goes from here to the portal only, and stays in this process's memory.
+  // A browser always sends Origin on a POST: only the docs page, served from here, may log in.
+  app.post('/sessao', async (c) => {
+    const origin = c.req.header('origin');
+    if (origin !== undefined && !allowedHosts.has(hostOf(origin))) return sendError(c, 'origem_invalida');
+    if (!c.req.header('content-type')?.startsWith('application/json')) {
+      return sendError(c, 'parametro_invalido', apiError('parametro_invalido', 'Envie o corpo como application/json.'));
+    }
+    const body = loginBodySchema.parse(await c.req.json().catch(() => null));
+    const { token, state } = await login.login({ user: body.usuario, password: body.senha });
+    return c.json({ token, nome: state.user.username, periodo: state.context.codPerLet }, 200);
+  });
+
+  app.get('/sessao', async (c) => {
+    const session = login.sessionFor(bearer(c));
+    if (!session) return sendError(c, 'token_invalido');
+    const { user, context } = await session.ensureSession();
+    return c.json({ nome: user.username, periodo: context.codPerLet }, 200);
+  });
+
+  app.delete('/sessao', (c) => {
+    if (!login.logout(bearer(c))) return sendError(c, 'token_invalido');
+    return c.body(null, 204);
+  });
+
   for (const operation of operations) {
-    app.on(operation.method.toUpperCase(), toRoutePath(operation.path), requireToken, async (c) => {
+    app.on(operation.method.toUpperCase(), toRoutePath(operation.path), async (c) => {
+      const session = login.sessionFor(bearer(c));
+      if (!session) return sendError(c, 'token_invalido');
       const input = readInput(operation, c.req.param() as Record<string, string>, c.req.queries());
       return c.json(await runOperation(operation, session, input), 200);
     });

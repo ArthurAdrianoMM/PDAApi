@@ -5,7 +5,16 @@ import { describe, expect, it } from 'vitest';
 import { createApp } from '../src/http/app.js';
 import { defineOperation, type Operation } from '../src/operations/index.js';
 import { listarPeriodos } from '../src/operations/periodos.js';
-import { academicRoute, createTestSession, envelope, type FakePortalOptions } from './support/fake-portal.js';
+import {
+  ORIGIN,
+  PASSWORD,
+  USER,
+  academicRoute,
+  createTestSession,
+  envelope,
+  fakeSession,
+  type FakePortalOptions,
+} from './support/fake-portal.js';
 
 const TOKEN = 'token-de-teste';
 const PORT = 4321;
@@ -17,8 +26,10 @@ const DOCS_DIR = mkdtempSync(join(tmpdir(), 'portal-aluno-docs-'));
 mkdirSync(join(DOCS_DIR, 'assets'));
 writeFileSync(join(DOCS_DIR, 'index.html'), '<!doctype html><title>docs</title>');
 writeFileSync(join(DOCS_DIR, 'assets', 'index-abc123.js'), 'console.log(1);');
+writeFileSync(join(DOCS_DIR, 'assets', 'art-abc123.webp'), 'RIFF');
+writeFileSync(join(DOCS_DIR, 'assets', 'art-still-abc123.png'), 'PNG');
 
-function setup(options: FakePortalOptions = {}, operations?: readonly Operation[], docsDir = DOCS_DIR) {
+function setup(options: FakePortalOptions = {}, operations?: readonly Operation[], docsDir = DOCS_DIR, loggedIn = true) {
   const { portal, session } = createTestSession({
     routes: {
       'TOTVSEducacional/Periodos': academicRoute(CONTEXT_ID, [{ CODPERLET: '2026S2', IDPERLET: 1042 }]),
@@ -28,8 +39,9 @@ function setup(options: FakePortalOptions = {}, operations?: readonly Operation[
   });
   const logs: string[] = [];
   const app = createApp({
-    session,
-    token: TOKEN,
+    openSession: (credentials) => fakeSession(portal, credentials),
+    ...(loggedIn ? { initial: { session, token: TOKEN } } : {}),
+    portalUrl: ORIGIN,
     port: PORT,
     log: (line) => logs.push(line),
     docsDir,
@@ -38,7 +50,13 @@ function setup(options: FakePortalOptions = {}, operations?: readonly Operation[
   const request = (path: string, init: RequestInit = {}, base = BASE) => app.request(`${base}${path}`, init);
   const authed = (path: string, init: RequestInit = {}, base = BASE) =>
     request(path, { ...init, headers: { authorization: `Bearer ${TOKEN}`, ...init.headers } }, base);
-  return { app, portal, logs, request, authed };
+  const login = (body: unknown, headers: Record<string, string> = {}) =>
+    request('/sessao', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', origin: BASE, ...headers },
+      body: typeof body === 'string' ? body : JSON.stringify(body),
+    });
+  return { app, portal, logs, request, authed, login };
 }
 
 describe('authentication', () => {
@@ -71,6 +89,85 @@ describe('authentication', () => {
     expect((await request('/docs/')).status).toBe(200);
     const doc = await (await request('/openapi.json')).json();
     expect(doc).toMatchObject({ servers: [{ url: BASE }] });
+  });
+});
+
+describe('login', () => {
+  it('logs in with the portal credentials and returns a token that opens the API', async () => {
+    const { login, request } = setup();
+    const res = await login({ usuario: USER, senha: PASSWORD });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { token: string };
+    expect(body).toEqual({ token: expect.any(String), nome: 'Aluno Teste', periodo: '2026S2' });
+
+    const bearer = (token: string) => ({ headers: { authorization: `Bearer ${token}` } });
+    expect((await request('/periodos', bearer(body.token))).status).toBe(200);
+    expect((await request('/periodos', bearer(TOKEN))).status).toBe(401);
+  });
+
+  it('starts with nobody logged in when there is no initial session', async () => {
+    const { request } = setup({}, undefined, DOCS_DIR, false);
+    expect((await request('/sessao')).status).toBe(401);
+    expect((await request('/periodos', { headers: { authorization: `Bearer ${TOKEN}` } })).status).toBe(401);
+  });
+
+  it('reports wrong credentials and keeps the current login', async () => {
+    const { login, authed } = setup();
+    const res = await login({ usuario: USER, senha: 'errada' });
+    expect(res.status).toBe(401);
+    expect(await res.json()).toMatchObject({ erro: 'login_falhou' });
+    expect((await authed('/periodos')).status).toBe(200);
+  });
+
+  it('refuses a login from another origin, without contacting the portal', async () => {
+    const { login, portal } = setup({}, undefined, DOCS_DIR, false);
+    const res = await login({ usuario: USER, senha: PASSWORD }, { origin: 'https://site.test' });
+    expect(res.status).toBe(403);
+    expect(await res.json()).toMatchObject({ erro: 'origem_invalida' });
+    expect(portal.requests).toHaveLength(0);
+  });
+
+  it('accepts a login from localhost and from clients that send no Origin', async () => {
+    const { login, request } = setup();
+    expect((await login({ usuario: USER, senha: PASSWORD }, { origin: `http://localhost:${PORT}` })).status).toBe(200);
+    const res = await request('/sessao', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ usuario: USER, senha: PASSWORD }),
+    });
+    expect(res.status).toBe(200);
+  });
+
+  it('only takes a JSON body, naming missing fields', async () => {
+    const { login } = setup();
+    const form = await login(`usuario=${USER}&senha=x`, { 'content-type': 'application/x-www-form-urlencoded' });
+    expect(form.status).toBe(400);
+    const empty = await login({ usuario: ' ', senha: '' });
+    expect(empty.status).toBe(400);
+    const body = (await empty.json()) as { detalhes: { campo: string }[] };
+    expect(body.detalhes.map((d) => d.campo)).toEqual(['usuario', 'senha']);
+  });
+
+  it('never logs the body', async () => {
+    const { login, logs } = setup();
+    await login({ usuario: USER, senha: PASSWORD });
+    expect(logs.at(-1)).toMatch(/^POST \/sessao 200 \d+ms$/);
+    expect(logs.join('\n')).not.toContain(PASSWORD);
+  });
+
+  it('tells who is logged in', async () => {
+    const { authed, request } = setup();
+    const res = await authed('/sessao');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ nome: 'Aluno Teste', periodo: '2026S2' });
+    expect((await request('/sessao')).status).toBe(401);
+  });
+
+  it('logs out, after which the token no longer works', async () => {
+    const { authed } = setup();
+    expect((await authed('/sessao', { method: 'DELETE' })).status).toBe(204);
+    expect((await authed('/periodos')).status).toBe(401);
+    expect((await authed('/sessao', { method: 'DELETE' })).status).toBe(401);
   });
 });
 
@@ -125,6 +222,8 @@ describe('docs page', () => {
     expect(asset.headers.get('content-type')).toContain('javascript');
     expect(asset.headers.get('cache-control')).toContain('immutable');
     expect((await request('/docs/')).headers.get('cache-control')).toBe('no-store');
+    expect((await request('/docs/assets/art-abc123.webp')).headers.get('content-type')).toBe('image/webp');
+    expect((await request('/docs/assets/art-still-abc123.png')).headers.get('content-type')).toBe('image/png');
   });
 
   it('never serves files outside the docs folder', async () => {

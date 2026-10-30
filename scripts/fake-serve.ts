@@ -7,13 +7,13 @@
  */
 import { serve } from '@hono/node-server';
 import { createApp } from '../src/http/app.js';
-import { CONTEXTS, academicRoute, createTestSession } from '../test/support/fake-portal.js';
+import { CONTEXTS, ORIGIN, PASSWORD, USER, academicRoute, createFakePortal, fakeSession } from '../test/support/fake-portal.js';
 
 const PORT = 4321;
 const TOKEN = 'dev';
 const CONTEXT_ID = CONTEXTS[1]!.IDCONTEXTOALUNO;
 
-const { session } = createTestSession({
+const portal = createFakePortal({
   routes: {
     'TOTVSEducacional/Periodos': academicRoute(CONTEXT_ID, [
       { CODPERLET: '2026S2', IDPERLET: 1042 },
@@ -61,8 +61,16 @@ const { session } = createTestSession({
   },
 });
 
+// Logged in from the start with token "dev", like `serve` with the credentials in the environment.
+const session = fakeSession(portal);
 await session.login();
-const app = createApp({ session, token: TOKEN, port: PORT, log: (line) => console.error(line) });
+const app = createApp({
+  openSession: (credentials) => fakeSession(portal, credentials),
+  initial: { session, token: TOKEN },
+  portalUrl: ORIGIN,
+  port: PORT,
+  log: (line) => console.error(line),
+});
 serve({ fetch: app.fetch, hostname: '127.0.0.1', port: PORT }, () => {
   console.log(
     [
@@ -70,6 +78,8 @@ serve({ fetch: app.fetch, hostname: '127.0.0.1', port: PORT }, () => {
       '',
       `Página construída: http://127.0.0.1:${PORT}/docs/#token=${TOKEN}`,
       `Com hot reload:    http://localhost:5173/docs/#token=${TOKEN}   (rode npm run dev:web)`,
+      '',
+      `Para testar a tela de login: usuário ${USER}, senha ${PASSWORD}`,
     ].join('\n'),
   );
 });

@@ -10,13 +10,14 @@ Uso:
   portal-aluno serve [--port 4321] [--period 2026S2]
 
 Comandos:
-  serve        Entra no portal e serve a API e a documentação em 127.0.0.1.
+  serve        Serve a API e a documentação em 127.0.0.1.
 
 Opções de serve:
   --port       Porta local (padrão 4321).
   --period     Período da matrícula a usar (CODPERLET). Padrão: a matrícula mais recente.
 
-Usuário e senha são pedidos no terminal, ou lidos de PORTAL_ALUNO_USER e PORTAL_ALUNO_PASSWORD.
+Entre com usuário e senha na documentação. Com PORTAL_ALUNO_USER e PORTAL_ALUNO_PASSWORD
+definidos, o servidor já entra no portal ao iniciar.
 `;
 
 function fail(message: string): never {
