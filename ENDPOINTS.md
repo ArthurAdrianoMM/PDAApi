@@ -42,25 +42,26 @@ Credentials, cookies, tokens and personal values are not written in this file.
 
 **Removed: `TOTVSEducacional/LoginURL?alias=CorporeRM`.** On 2026-10-29 it returned **404** (`"No HTTP resource was found that matches the request URI"`), and the current login page code (`login/login.controller.js`) does not call it. The old portal's base is a constant in the portal's own config: `CONST_GLOBAL_URL_CORPORE_RM = '/Corpore.net/'` in `FrameHTML/web/js/totvs-app.global.config.js`, on the same host.
 
-### 2.2 Form login (verified)
+### 2.2 JSON login (verified 2026-11-03)
 
-`POST /Corpore.Net/Source/EDU-EDUCACIONAL/Public/EduPortalAlunoLogin.aspx?AutoLoginType=ExternalLogin`
+`POST /FrameHTML/RM/API/TOTVSEducacional/Login`
 
-Re-verified from curl on 2026-10-29: this POST, then `AutoLoginPortal` (2.3), `Contexto` and the context cookie (2.4), then `getcurrentuser` returned the logged-in user.
+This is what the current login page does (`login.controller.js`, function `login`): it posts `{ user, password, alias }` as JSON, reads the key from the answer and redirects to `#/main?key=<key>`.
 
-- Content type: `application/x-www-form-urlencoded`
-- Fields: `User`, `Pass`, `Alias` (`CorporeRM`)
-- Needs `Content-Length`. Without it the server returns 411.
-- Success: **302** to `https://senaiweb6.fieb.org.br/framehtml/web/app/edu/PortalEducacional/#/main?key=<opaque>`, and cookies are set (see section 3). Treat the 302 as success. Do not follow redirects with a body-less POST.
-- The `key` value is an opaque session key. The app passes it to step 2.3.
+Checked from curl on 2026-11-03, with a browser `User-Agent` and only status, header names and JSON paths recorded:
 
-**Found, not verified: the login page's own JSON login.** The current login page (`login.controller.js`, function `login`) does not post this form. It calls `POST /FrameHTML/RM/API/TOTVSEducacional/Login` with the JSON body `{ user, password, alias }`, and on success reads the key from `result.value`, then redirects to `#/main?key=<value>`. The response shape and status codes have not been recorded. The API keeps the form POST above because it is the verified path.
+- Content type: `application/json`. Body: `{ "user": "…", "password": "…", "alias": "CorporeRM" }`.
+- Success: **HTTP 200**, `application/json; charset=utf-8`, cookies `.ASPXAUTH` and `cookiesession1` set. The body is the envelope with `data.value` (the session key, a scalar), `length` and `HttpStatusCode`.
+- The key goes to step 2.3. In the URL it is a query value, so it is URL-encoded there.
+- The answer to wrong credentials is not recorded (section 7.1).
+
+**Old form login, now 503.** `POST /Corpore.Net/Source/EDU-EDUCACIONAL/Public/EduPortalAlunoLogin.aspx?AutoLoginType=ExternalLogin` with the form fields `User`, `Pass`, `Alias` worked from curl on 2026-10-29: a **302** to `…/PortalEducacional/#/main?key=<opaque>`, and it needed `Content-Length` (411 without). On 2026-11-03 the same POST returned **503 Service Unavailable** (a 326-byte HTML page), with curl's own `User-Agent` and with a browser one, while the JSON login above worked. The API no longer uses it.
 
 ### 2.3 Session bootstrap (verified, GET)
 
-`GET /FrameHTML/RM/API/user/AutoLoginPortal?key=<key from the 302>`
+`GET /FrameHTML/RM/API/user/AutoLoginPortal?key=<data.value from 2.2>`
 
-The frontend calls this right after the redirect, which turns the key into an authenticated app session. Other endpoints require this session. After this call the cookie jar holds `RMAuthForm`, `ASP.NET_SessionId`, `.ASPXAUTH`, `DefaultAlias` and `CorporePrincipal`.
+The frontend calls this right after the login, which turns the key into an authenticated app session. Other endpoints require this session. After this call the cookie jar holds `RMAuthForm`, `ASP.NET_SessionId`, `.ASPXAUTH`, `DefaultAlias` and `CorporePrincipal`.
 
 ### 2.4 Set the context cookie (verified from curl, required)
 
@@ -102,6 +103,7 @@ The login page calls this **on load**, so it ends any existing session. Do not c
 | `CorporePrincipal` | Encrypted principal blob set by the portal |
 | `EduContextoAlunoResponsavelAPI` | Active student context. Set by the frontend JavaScript, **not by the server**. Holds the raw `IDCONTEXTOALUNO` from `Contexto`. API clients must set it themselves (section 2.4) |
 | `EduMascaras` | Front-end masks (phone, CEP). Not sensitive |
+| `cookiesession1` | Set on every response seen on 2026-11-03, the 503 included. Purpose not recorded; it may come from a proxy in front of the portal |
 
 **Session check:** `GET /FrameHTML/RM/API/user/getcurrentuser` returns the logged-in user. Use it to check whether the session still works.
 
@@ -292,7 +294,7 @@ All academic pages listed in the menu are now mapped (sections 4.5 to 4.9). The 
 
 The client does not assume an answer to these. Each one notes what the code does today.
 
-1. **Login with a wrong password.** What the form POST returns is not recorded. The client treats anything other than a 3xx whose `Location` carries `key` as `login_falhou`.
+1. **Login with a wrong password.** What `TOTVSEducacional/Login` returns is not recorded. The client treats a 5xx as `portal_indisponivel`, and anything else without a 2xx and a non-empty string `data.value` as `login_falhou`, passing on `messages[]` when the body has them.
 2. **API calls with an expired session.** Section 3 records the app's page redirect, not what an API call returns. The client treats a 3xx or 401 on an API call as an expired session, logs in again once and retries.
 3. ~~**`ListarAlias` envelope.**~~ Resolved 2026-10-29: a bare array. The client now accepts only that.
 4. **`AutoLoginPortal` response.** Its status and body are not recorded. The client accepts any status below 400 and then checks the session with `getcurrentuser`.

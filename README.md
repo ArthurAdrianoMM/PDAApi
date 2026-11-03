@@ -89,7 +89,7 @@ The output is your own data, so don't paste it anywhere public.
 ```
 src/
   core/          talks to the portal
-    auth.ts        login steps (ListarAlias → form POST → AutoLoginPortal → getcurrentuser)
+    auth.ts        login steps (ListarAlias → JSON login → AutoLoginPortal → getcurrentuser)
     context.ts     enrollment context and the context cookie
     session.ts     PortalSession: in-memory session, re-login, getData()
     http.ts        fetch + cookie jar + throttle, no automatic redirects

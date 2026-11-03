@@ -1,5 +1,5 @@
 /**
- * The login flow (ENDPOINTS.md 2.1 to 2.3): alias, form POST, session
+ * The login flow (ENDPOINTS.md 2.1 to 2.3): alias, JSON login, session
  * bootstrap, session check. Each step is one request.
  */
 import { z } from 'zod';
@@ -27,13 +27,14 @@ const aliasesSchema = z.array(z.string());
 const currentUserSchema = z.looseObject({ login: z.string(), username: z.string() });
 
 /**
- * The form login, on the configured origin. The portal's own config fixes the
- * old portal's base as `CONST_GLOBAL_URL_CORPORE_RM = '/Corpore.net/'`
- * (FrameHTML/web/js/totvs-app.global.config.js), and this path was verified
- * from curl (ENDPOINTS.md 2.2). Being a fixed path on the configured origin,
- * the password cannot be sent anywhere else.
+ * `TOTVSEducacional/Login`'s answer. On success `data.value` is the session key
+ * (ENDPOINTS.md 2.2). The answer to wrong credentials has not been recorded, so
+ * every field is optional and only a non-empty string key counts as success.
  */
-const LOGIN_FORM_PATH = '/Corpore.Net/Source/EDU-EDUCACIONAL/Public/EduPortalAlunoLogin.aspx?AutoLoginType=ExternalLogin';
+const loginResponseSchema = z.looseObject({
+  data: z.looseObject({ value: z.unknown() }).nullish(),
+  messages: z.array(z.looseObject({ type: z.string().optional(), detail: z.string().optional() })).optional(),
+});
 
 /** `TOTVSEducacional/ListarAlias`: a bare JSON array. Uses the configured alias, or the only one the portal lists. */
 export async function resolveAlias(http: PortalHttp, config: PortalConfig): Promise<string> {
@@ -55,10 +56,11 @@ export async function resolveAlias(http: PortalHttp, config: PortalConfig): Prom
 }
 
 /**
- * Posts the login form and returns the session key from the redirect.
- * Success is a 3xx whose Location carries `key` (in the hash route: `#/main?key=…`).
- * Anything else is a failed login. The portal's answer to wrong credentials has
- * not been recorded, so the error does not claim a cause.
+ * Logs in the way the portal's login page does (`login.controller.js`): a JSON
+ * POST to `TOTVSEducacional/Login` on the configured origin, so the password
+ * cannot be sent anywhere else. Returns the session key from `data.value`.
+ * Anything else is a failed login, and the error does not claim a cause. The
+ * old form POST on `/Corpore.Net/` answers 503 since 2026-11-03 (ENDPOINTS.md 2.2).
  */
 export async function submitLogin(
   http: PortalHttp,
@@ -66,32 +68,33 @@ export async function submitLogin(
   alias: string,
   credentials: Credentials,
 ): Promise<string> {
-  const url = new URL(LOGIN_FORM_PATH, config.baseUrl);
+  const label = 'Login';
   const res = await http.request({
     method: 'POST',
-    url,
-    form: { User: credentials.user, Pass: credentials.password, Alias: alias },
+    url: apiUrl(config.baseUrl, 'TOTVSEducacional/Login'),
+    json: { user: credentials.user, password: credentials.password, alias },
   });
-
-  const key = res.status >= 300 && res.status < 400 && res.location ? extractLoginKey(res.location, url) : null;
-  if (!key) {
-    throw new PortalError(
-      'login_falhou',
-      `O portal não aceitou o login (HTTP ${res.status}, sem chave de sessão). Confira o usuário e a senha.`,
-      { status: res.status },
-    );
+  if (res.status >= 500) {
+    throw new PortalError('portal_indisponivel', `O portal falhou (${label}, HTTP ${res.status}).`, { status: res.status });
   }
-  return key;
+
+  const parsed = loginResponseSchema.safeParse(parseJsonOrNull(res.body));
+  const key = parsed.success ? parsed.data.data?.value : undefined;
+  if (res.status >= 200 && res.status < 300 && typeof key === 'string' && key !== '') return key;
+
+  throw new PortalError(
+    'login_falhou',
+    `O portal não aceitou o login (HTTP ${res.status}, sem chave de sessão). Confira o usuário e a senha.`,
+    { status: res.status, portalMessages: parsed.success ? (parsed.data.messages ?? []) : [] },
+  );
 }
 
-/** Reads `key` from the query string or from the hash route's query string. */
-export function extractLoginKey(location: string, base: URL): string | null {
-  const url = new URL(location, base);
-  const fromQuery = url.searchParams.get('key');
-  if (fromQuery) return fromQuery;
-  const hashQuery = url.hash.indexOf('?');
-  if (hashQuery === -1) return null;
-  return new URLSearchParams(url.hash.slice(hashQuery + 1)).get('key') || null;
+function parseJsonOrNull(body: string): unknown {
+  try {
+    return JSON.parse(body);
+  } catch {
+    return null;
+  }
 }
 
 /**

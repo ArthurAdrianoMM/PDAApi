@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { extractLoginKey } from '../src/core/auth.js';
 import { PortalSession, type PortalErrorCode } from '../src/core/index.js';
 import {
   CONTEXT_COOKIE,
@@ -10,6 +9,8 @@ import {
   academicRoute,
   createFakePortal,
   envelope,
+  loginKey,
+  OLD_LOGIN_FORM_PATH,
   type FakePortalOptions,
 } from './support/fake-portal.js';
 
@@ -40,7 +41,7 @@ describe('login', () => {
 
     expect(portal.paths()).toEqual([
       'GET TOTVSEducacional/ListarAlias',
-      'POST /Corpore.Net/Source/EDU-EDUCACIONAL/Public/EduPortalAlunoLogin.aspx',
+      'POST TOTVSEducacional/Login',
       'GET user/AutoLoginPortal',
       'GET user/getcurrentuser',
       'GET TOTVSEducacional/Contexto',
@@ -48,17 +49,18 @@ describe('login', () => {
     expect(state.user).toEqual({ login: USER, username: 'Aluno Teste' });
   });
 
-  it('posts the form fields encoded, with the session key taken from the redirect', async () => {
+  it('posts the credentials as JSON, and passes the key from data.value to AutoLoginPortal', async () => {
     const { portal, session } = setup();
     await session.login();
 
     const post = portal.requests.find((r) => r.method === 'POST')!;
-    expect(post.url.searchParams.get('AutoLoginType')).toBe('ExternalLogin');
-    expect(post.headers.get('content-type')).toBe('application/x-www-form-urlencoded');
-    expect(Object.fromEntries(new URLSearchParams(post.body!))).toEqual({ User: USER, Pass: PASSWORD, Alias: 'CorporeRM' });
+    expect(post.headers.get('content-type')).toBe('application/json');
+    expect(JSON.parse(post.body!)).toEqual({ user: USER, password: PASSWORD, alias: 'CorporeRM' });
+    expect(portal.requests.some((r) => r.url.pathname === OLD_LOGIN_FORM_PATH)).toBe(false);
 
     const autoLogin = portal.requests.find((r) => r.url.pathname.endsWith('user/AutoLoginPortal'))!;
-    expect(autoLogin.url.searchParams.get('key')).toBe('KEY-1');
+    expect(autoLogin.url.searchParams.get('key')).toBe(loginKey(1));
+    expect(autoLogin.url.search).not.toContain('+');
   });
 
   it('picks the enrollment with the latest start date', async () => {
@@ -78,16 +80,30 @@ describe('login', () => {
     await expectCode(session.login(), 'configuracao_invalida');
   });
 
-  it('fails when the portal does not redirect with a key', async () => {
-    const { portal, session } = setup();
+  it('fails when the portal answers without a key, and passes on its messages', async () => {
+    const { portal } = setup();
     const wrong = new PortalSession({
       credentials: async () => ({ user: USER, password: 'errada' }),
       fetch: portal.fetch,
       config: { baseUrl: ORIGIN, minRequestIntervalMs: 0 },
     });
-    await expectCode(wrong.login(), 'login_falhou');
-    expect(portal.paths().at(-1)).toContain('POST');
-    expect(session.isLoggedIn).toBe(false);
+    await expect(wrong.login()).rejects.toMatchObject({
+      code: 'login_falhou',
+      portalMessages: [{ type: 'error', detail: 'Usuário ou senha inválidos.' }],
+    });
+    expect(portal.paths().at(-1)).toBe('POST TOTVSEducacional/Login');
+    expect(wrong.isLoggedIn).toBe(false);
+  });
+
+  it('reports a 5xx on the login as the portal being unavailable', async () => {
+    const { portal } = setup();
+    const session = new PortalSession({
+      credentials: async () => ({ user: USER, password: PASSWORD }),
+      fetch: async (input, init) =>
+        String(input).endsWith('TOTVSEducacional/Login') ? new Response(null, { status: 503 }) : portal.fetch(input, init),
+      config: { baseUrl: ORIGIN, minRequestIntervalMs: 0 },
+    });
+    await expectCode(session.login(), 'portal_indisponivel');
   });
 
   it('sends the password only to the configured origin', async () => {
@@ -117,19 +133,6 @@ describe('login', () => {
     const { portal, session } = setup();
     await session.getData('TOTVSEducacional/NotaEtapa', {}, z.unknown());
     expect(portal.paths().some((p) => /Logout|Selecao/.test(p))).toBe(false);
-  });
-});
-
-describe('extractLoginKey', () => {
-  const base = new URL(`${ORIGIN}/Corpore.Net/`);
-  it('reads the key from the hash route', () => {
-    expect(extractLoginKey('/app/#/main?key=a%2Bb', base)).toBe('a+b');
-  });
-  it('reads the key from the query string', () => {
-    expect(extractLoginKey('/app/?key=abc#/main', base)).toBe('abc');
-  });
-  it('returns null without a key', () => {
-    expect(extractLoginKey('/app/#/main', base)).toBeNull();
   });
 });
 

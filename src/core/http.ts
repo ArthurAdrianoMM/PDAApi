@@ -8,8 +8,8 @@ export type FetchFn = typeof fetch;
 export interface PortalRequest {
   method: 'GET' | 'POST';
   url: URL;
-  /** Sent as `application/x-www-form-urlencoded`. */
-  form?: Record<string, string>;
+  /** Sent as `application/json`. */
+  json?: unknown;
 }
 
 export interface PortalResponse {
@@ -24,8 +24,8 @@ const ACCEPT = 'application/json, text/plain, */*';
 
 /**
  * Low-level transport to the portal: one in-memory cookie jar, throttled
- * requests, and no automatic redirects. Redirects carry the login key and the
- * session-expiry signal, so callers must see them. Never logs anything.
+ * requests, and no automatic redirects. Redirects carry the session-expiry
+ * signal, so callers must see them. Never logs anything.
  */
 export class PortalHttp {
   readonly #config: PortalConfig;
@@ -54,16 +54,15 @@ export class PortalHttp {
     this.#jar = new CookieJar();
   }
 
-  async #send({ method, url, form }: PortalRequest): Promise<PortalResponse> {
+  async #send({ method, url, json }: PortalRequest): Promise<PortalResponse> {
     const headers = new Headers({ accept: ACCEPT, 'user-agent': this.#config.userAgent });
     const cookies = await this.#jar.getCookieString(url.href);
     if (cookies) headers.set('cookie', cookies);
 
     let body: string | undefined;
-    if (form) {
-      // fetch sets Content-Length for a string body; the login form needs it (ENDPOINTS.md 2.2).
-      body = new URLSearchParams(form).toString();
-      headers.set('content-type', 'application/x-www-form-urlencoded');
+    if (json !== undefined) {
+      body = JSON.stringify(json);
+      headers.set('content-type', 'application/json');
     }
 
     let res: Response;
