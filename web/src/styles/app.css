@@ -42,6 +42,32 @@ kbd {
   white-space: nowrap;
 }
 
+/* Thin rounded thumb, no track. Firefox has no pseudo-elements, so it gets the thin native bar in the same color. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: var(--scroll-thumb);
+  background-clip: content-box;
+  border: 3px solid transparent;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover,
+::-webkit-scrollbar-thumb:active {
+  background-color: var(--scroll-thumb-hover);
+}
+@supports not selector(::-webkit-scrollbar) {
+  :root {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scroll-thumb) transparent;
+  }
+}
+
 /* ── Shared bits ─────────────────────────────────────────── */
 
 .overline {
@@ -354,17 +380,21 @@ kbd {
   display: flex;
   flex-wrap: wrap;
   align-items: stretch;
-  min-height: calc(100vh - 73px);
+  min-height: calc(100vh - var(--topbar-height, 73px));
 }
 
 .sidebar {
   flex: 1 1 272px;
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 12px;
   padding: 24px 16px;
   background: var(--bg-panel);
   border-right: 1px solid var(--line);
+}
+/* Inside the groups' clipped boxes, an outer focus ring would be cut off. */
+.sidebar :focus-visible {
+  outline-offset: -2px;
 }
 .sidebar__group {
   display: flex;
@@ -381,6 +411,72 @@ kbd {
   font-family: var(--font-mono);
   font-size: 12px;
   color: var(--text-6);
+}
+
+/* A tag group: the whole heading row opens and closes it. */
+.sidebar__title {
+  margin: 0;
+  font: inherit;
+}
+.sidebar__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 10px 0 12px;
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.sidebar__toggle:hover {
+  background: var(--hover-bg);
+}
+.sidebar__toggle .overline {
+  transition: color 0.15s ease;
+}
+.sidebar__toggle:hover .overline,
+.sidebar__toggle:hover .sidebar__chevron {
+  color: var(--text-3);
+}
+.sidebar__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sidebar__chevron {
+  display: block;
+  color: var(--text-6);
+  transition: color 0.15s ease, transform 0.2s var(--ease-out);
+}
+.sidebar__group--closed .sidebar__chevron {
+  transform: rotate(180deg);
+}
+/* Grid rows animate between 1fr and 0fr, so the height needs no measuring. */
+.sidebar__body {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.2s var(--ease-out);
+}
+.sidebar__group--closed .sidebar__body {
+  grid-template-rows: 0fr;
+}
+.sidebar__items {
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  transition: opacity 0.16s ease;
+}
+.sidebar__group--closed .sidebar__items {
+  opacity: 0;
+  transition-duration: 0.12s;
 }
 .nav-item {
   display: flex;
@@ -448,7 +544,6 @@ kbd {
   padding: 36px 40px 72px;
 }
 .content__inner {
-  max-width: 1240px;
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -1240,6 +1335,45 @@ kbd {
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+/*
+ * Side by side, the sidebar stays under the top bar and scrolls on its own;
+ * the content keeps the page scroll. Its scrollbar shows only under the pointer,
+ * and the gutter is kept so closing a group never shifts the links sideways.
+ */
+@media (min-width: 721px) {
+  .layout {
+    flex-wrap: nowrap;
+  }
+  .sidebar {
+    flex: 0 0 272px;
+    position: sticky;
+    top: var(--topbar-height, 73px);
+    height: calc(100vh - var(--topbar-height, 73px));
+    padding-right: 6px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+  .sidebar::-webkit-scrollbar-thumb {
+    background-color: transparent;
+  }
+  .sidebar:hover::-webkit-scrollbar-thumb {
+    background-color: var(--scroll-thumb);
+  }
+  .sidebar::-webkit-scrollbar-thumb:hover,
+  .sidebar::-webkit-scrollbar-thumb:active {
+    background-color: var(--scroll-thumb-hover);
+  }
+  @supports not selector(::-webkit-scrollbar) {
+    .sidebar {
+      scrollbar-color: transparent transparent;
+    }
+    .sidebar:hover {
+      scrollbar-color: var(--scroll-thumb) transparent;
+    }
   }
 }
 

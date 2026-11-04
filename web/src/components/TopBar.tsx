@@ -51,7 +51,19 @@ interface TopBarProps {
 }
 
 export function TopBar({ title, version, query, onQuery, onSubmitQuery, connection, route, theme, onToggleTheme }: TopBarProps) {
+  const header = useRef<HTMLElement>(null);
   const input = useRef<HTMLInputElement>(null);
+
+  // The sidebar sticks right under the bar, which grows when its contents wrap.
+  useEffect(() => {
+    const bar = header.current;
+    if (!bar) return;
+    const observer = new ResizeObserver(() => {
+      document.documentElement.style.setProperty('--topbar-height', `${bar.offsetHeight}px`);
+    });
+    observer.observe(bar);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => {
@@ -72,7 +84,7 @@ export function TopBar({ title, version, query, onQuery, onSubmitQuery, connecti
   const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
 
   return (
-    <header className="topbar">
+    <header className="topbar" ref={header}>
       <a className="brand" href="#/">
         <span className="brand__mark" aria-hidden="true">
           pa

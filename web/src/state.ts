@@ -227,3 +227,32 @@ export function useTheme(): [Theme, () => void] {
   }, []);
   return [theme, toggle];
 }
+
+// ── Sidebar groups ──────────────────────────────────────────────────
+
+const CLOSED_GROUPS_KEY = 'portal-aluno-grupos-fechados';
+
+function loadClosedGroups(): Set<string> {
+  try {
+    const saved: unknown = JSON.parse(storageGet(() => localStorage, CLOSED_GROUPS_KEY) ?? '[]');
+    return new Set(Array.isArray(saved) ? saved.filter((name): name is string => typeof name === 'string') : []);
+  } catch {
+    return new Set();
+  }
+}
+
+/** The sidebar groups the person closed, remembered in this browser. Every group starts open. */
+export function useClosedGroups(): [ReadonlySet<string>, (name: string, open: boolean) => void] {
+  const [closed, setClosed] = useState(loadClosedGroups);
+  const setOpen = useCallback((name: string, open: boolean) => {
+    setClosed((current) => {
+      if (current.has(name) !== open) return current;
+      const next = new Set(current);
+      if (open) next.delete(name);
+      else next.add(name);
+      storageSet(() => localStorage, CLOSED_GROUPS_KEY, next.size ? JSON.stringify([...next]) : null);
+      return next;
+    });
+  }, []);
+  return [closed, setOpen];
+}

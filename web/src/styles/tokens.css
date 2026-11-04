@@ -118,6 +118,9 @@
   --line: rgb(var(--neutral-rgb) / 0.55);
   --line-soft: rgb(var(--neutral-rgb) / 0.35);
   --line-strong: rgb(var(--neutral-rgb) / 0.75);
+  --scroll-thumb: rgb(var(--neutral-rgb) / 0.55);
+  --scroll-thumb-hover: rgb(var(--neutral-rgb) / 0.95);
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
   --radius: 14px;
   --radius-sm: 8px;
 }
