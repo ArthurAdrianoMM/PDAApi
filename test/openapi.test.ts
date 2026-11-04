@@ -2,7 +2,8 @@ import { readFile } from 'node:fs/promises';
 import { Validator } from '@seriousme/openapi-schema-validator';
 import { describe, expect, it } from 'vitest';
 import { generateOpenApi } from '../src/openapi/generate.js';
-import { operations } from '../src/operations/index.js';
+import { defineFileOperation, isFileOperation, operations } from '../src/operations/index.js';
+import { listarPeriodos } from '../src/operations/periodos.js';
 import { VERSION } from '../src/version.js';
 
 const readJson = async (path: string) => JSON.parse(await readFile(new URL(path, import.meta.url), 'utf8'));
@@ -28,12 +29,16 @@ describe('OpenAPI document', () => {
     expect(VERSION).toBe((await readJson('../package.json')).version);
   });
 
-  it('has one operation per definition, with a 200 example and the error responses', () => {
+  it('has one operation per definition, with a 200 example or file types, and the error responses', () => {
     const { paths } = doc as Doc;
     for (const op of operations) {
       const entry = paths[op.path]![op.method]!;
       expect(entry.operationId).toBe(op.id);
-      expect(entry.responses['200']).toMatchObject({ content: { 'application/json': { example: op.example } } });
+      if (isFileOperation(op)) {
+        expect(Object.keys((entry.responses['200'] as { content: object }).content)).toEqual(op.file.mediaTypes);
+      } else {
+        expect(entry.responses['200']).toMatchObject({ content: { 'application/json': { example: op.example } } });
+      }
       expect(Object.keys(entry.responses)).toEqual(expect.arrayContaining(['400', '401', '403', '502', '503']));
     }
   });
@@ -48,5 +53,25 @@ describe('OpenAPI document', () => {
 
   it('uses the given server URL', () => {
     expect(generateOpenApi({ serverUrl: 'http://127.0.0.1:9999' })).toMatchObject({ servers: [{ url: 'http://127.0.0.1:9999' }] });
+  });
+
+  it('describes a file operation by its media types', async () => {
+    const file = defineFileOperation({
+      ...listarPeriodos,
+      id: 'baixarTeste',
+      path: '/teste/arquivo',
+      file: { mediaTypes: ['application/pdf', 'image/png'], description: 'Um arquivo.' },
+      handler: async () => ({ nome: null, tipo: 'application/pdf', conteudo: new Uint8Array() }),
+    });
+    const fileDoc = generateOpenApi({ operations: [file] });
+    expect(await new Validator().validate(structuredClone(fileDoc))).toMatchObject({ valid: true });
+    expect((fileDoc as Doc).paths['/teste/arquivo']!.get!.responses['200']).toEqual({
+      description: 'Um arquivo.',
+      headers: { 'Content-Disposition': expect.objectContaining({ schema: { type: 'string' } }) },
+      content: {
+        'application/pdf': { schema: { type: 'string', contentMediaType: 'application/pdf' } },
+        'image/png': { schema: { type: 'string', contentMediaType: 'image/png' } },
+      },
+    });
   });
 });

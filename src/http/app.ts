@@ -10,7 +10,14 @@ import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 import type { PortalSession } from '../core/index.js';
 import { generateOpenApi } from '../openapi/generate.js';
-import { operations as allOperations, runOperation, type Operation } from '../operations/index.js';
+import {
+  operations as allOperations,
+  isFileOperation,
+  runFileOperation,
+  runOperation,
+  type FileResult,
+  type Operation,
+} from '../operations/index.js';
 import { VERSION } from '../version.js';
 import { registerDocs } from './docs.js';
 import { ERROR_STATUS, apiError, toApiError, type ApiError, type ApiErrorCode } from './errors.js';
@@ -52,6 +59,26 @@ function hostOf(url: string): string {
 
 function sendError(c: Context, code: ApiErrorCode, body: ApiError = apiError(code)) {
   return c.json(body, ERROR_STATUS[code]);
+}
+
+/** `attachment`, with an ASCII fallback name and the real one in `filename*` (RFC 6266). */
+function contentDisposition(nome: string | null): string {
+  if (!nome) return 'attachment';
+  const ascii = nome.normalize('NFKD').replace(/[^\x20-\x7e]/g, '').replace(/["\\]/g, '_') || 'arquivo';
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(nome)}`;
+}
+
+/**
+ * A file from the portal, as a download. Files come from other people (the
+ * school), so the browser must never run one in this origin, where the token
+ * lives: always `attachment`, and a CSP that blocks everything if it is opened anyway.
+ */
+function sendFile(c: Context, file: FileResult) {
+  return c.body(file.conteudo, 200, {
+    'Content-Type': file.tipo,
+    'Content-Disposition': contentDisposition(file.nome),
+    'Content-Security-Policy': "default-src 'none'; sandbox",
+  });
 }
 
 export function createApp(options: AppOptions): Hono {
@@ -111,6 +138,7 @@ export function createApp(options: AppOptions): Hono {
       const session = login.sessionFor(bearer(c));
       if (!session) return sendError(c, 'token_invalido');
       const input = readInput(operation, c.req.param() as Record<string, string>, c.req.queries());
+      if (isFileOperation(operation)) return sendFile(c, await runFileOperation(operation, session, input));
       return c.json(await runOperation(operation, session, input), 200);
     });
   }

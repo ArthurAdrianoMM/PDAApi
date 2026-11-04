@@ -11,7 +11,18 @@ import { obterHorario } from './horario.js';
 import { obterNotas } from './notas.js';
 import { listarPeriodos } from './periodos.js';
 
-export { defineOperation, runOperation, type Callout, type Operation } from './define.js';
+export {
+  defineFileOperation,
+  defineOperation,
+  isFileOperation,
+  runFileOperation,
+  runOperation,
+  type Callout,
+  type FileOperation,
+  type FileResult,
+  type JsonOperation,
+  type Operation,
+} from './define.js';
 export { TAGS, type OperationTag } from './tags.js';
 
 /** Every operation of the API, in docs order. */

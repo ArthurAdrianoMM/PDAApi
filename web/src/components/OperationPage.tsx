@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { buildUrl } from '../lib/samples';
 import { flattenSchema } from '../lib/schema';
 import type { DocModel, DocOperation } from '../lib/spec';
@@ -29,11 +29,28 @@ function FieldPath({ path }: { path: string }) {
   );
 }
 
+/** The name in `filename*=UTF-8''…`, or in `filename="…"`. */
+function fileNameOf(disposition: string | null): string | null {
+  const extended = /filename\*=UTF-8''([^;]+)/i.exec(disposition ?? '');
+  if (extended) {
+    try {
+      return decodeURIComponent(extended[1]!);
+    } catch {
+      // Fall back to the plain name.
+    }
+  }
+  return /filename="([^"]*)"/i.exec(disposition ?? '')?.[1] || null;
+}
+
 export function OperationPage({ model, operation, connection }: OperationPageProps) {
   const [values, setValues] = useState<Record<string, string>>({});
   const [result, setResult] = useState<ApiResult | null>(null);
   const [sending, setSending] = useState(false);
   const fields = useMemo(() => flattenSchema(operation.output), [operation]);
+  const fileUrl = result?.file?.url;
+
+  // A downloaded file lives in memory as an object URL; let it go with its result.
+  useEffect(() => (fileUrl ? () => URL.revokeObjectURL(fileUrl) : undefined), [fileUrl]);
 
   const index = model.operations.indexOf(operation);
   const previous = model.operations[index - 1];
@@ -47,6 +64,21 @@ export function OperationPage({ model, operation, connection }: OperationPagePro
         headers: { authorization: `Bearer ${connection.token}`, accept: 'application/json' },
         cache: 'no-store',
       });
+      const type = res.headers.get('content-type') ?? '';
+      if (res.ok && operation.file && !type.startsWith('application/json')) {
+        const blob = await res.blob();
+        setResult({
+          status: res.status,
+          statusText: res.statusText,
+          ms: Math.round(performance.now() - started),
+          bytes: blob.size,
+          body: null,
+          isJson: false,
+          file: { url: URL.createObjectURL(blob), name: fileNameOf(res.headers.get('content-disposition')), type: blob.type || type },
+        });
+        connection.report(null);
+        return;
+      }
       const text = await res.text();
       let body: unknown = text;
       let isJson = false;
@@ -104,24 +136,42 @@ export function OperationPage({ model, operation, connection }: OperationPagePro
             onClear={result ? () => setResult(null) : null}
           />
 
-          <section className="op-section" aria-labelledby="campos">
-            <h2 id="campos" className="overline">
-              Resposta 200 · campos
-            </h2>
-            <div className="fields">
-              {fields.map((field) => (
-                <div className="field-row" key={field.path}>
-                  <div className="field-row__name">
-                    <FieldPath path={field.path} />
-                    <span className="field-row__type">{field.type}</span>
+          {operation.file ? (
+            <section className="op-section" aria-labelledby="arquivo">
+              <h2 id="arquivo" className="overline">
+                Resposta 200 · arquivo
+              </h2>
+              <Markdown text={operation.file.description} className="prose" />
+              <p className="muted">
+                Tipos:{' '}
+                {operation.file.mediaTypes.map((type, i) => (
+                  <span key={type}>
+                    {i > 0 && ', '}
+                    <code>{type}</code>
+                  </span>
+                ))}
+              </p>
+            </section>
+          ) : (
+            <section className="op-section" aria-labelledby="campos">
+              <h2 id="campos" className="overline">
+                Resposta 200 · campos
+              </h2>
+              <div className="fields">
+                {fields.map((field) => (
+                  <div className="field-row" key={field.path}>
+                    <div className="field-row__name">
+                      <FieldPath path={field.path} />
+                      <span className="field-row__type">{field.type}</span>
+                    </div>
+                    <p className="field-row__desc">
+                      <InlineText text={field.description} />
+                    </p>
                   </div>
-                  <p className="field-row__desc">
-                    <InlineText text={field.description} />
-                  </p>
-                </div>
-              ))}
-            </div>
-          </section>
+                ))}
+              </div>
+            </section>
+          )}
 
           <section className="op-section" aria-labelledby="erros">
             <h2 id="erros" className="overline">

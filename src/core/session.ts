@@ -10,8 +10,8 @@ import {
 import { CONTEXT_COOKIE, DEFAULT_CONFIG, type PortalConfig } from './config.js';
 import { listContexts, pickContext, toActiveContext, type ActiveContext, type ContextRecord } from './context.js';
 import { PortalError, isPortalError } from './errors.js';
-import { PortalHttp, type FetchFn } from './http.js';
-import { assertOk, parseJson, readEnvelope } from './response.js';
+import { PortalHttp, type FetchFn, type PortalRequest } from './http.js';
+import { assertOk, parseJson, readEnvelope, readFile, type PortalFile } from './response.js';
 import { apiUrl, type QueryValue } from './url.js';
 
 export interface PortalSessionOptions {
@@ -107,17 +107,21 @@ export class PortalSession {
     options: RequestOptions = {},
   ): Promise<z.output<S>> {
     return this.#withSession(async () => {
-      const record = this.#record(options.periodo);
-      // The page sends `encodeURI(id)`, which its query serializer then encodes again (ENDPOINTS.md 4.8).
-      const fullQuery = options.contextParam ? { ...query, [options.contextParam]: encodeURI(record.IDCONTEXTOALUNO) } : query;
-      const res = await this.#http.request({
-        method: 'GET',
-        url: apiUrl(this.config.baseUrl, path, fullQuery),
-        // The jar holds the session's enrollment; another one goes with this request only.
-        ...(record.CODPERLET === this.#state?.context.codPerLet ? {} : { cookies: { [CONTEXT_COOKIE]: record.IDCONTEXTOALUNO } }),
-      });
+      const res = await this.#http.request(this.#get(path, query, options));
       assertOk(res, path);
       return readEnvelope(parseJson(res, path), schema, path);
+    });
+  }
+
+  /**
+   * GETs an API path that answers with a file, such as a download. Session
+   * expiry and portal errors are handled as in `getData`.
+   */
+  getFile(path: string, query: Record<string, QueryValue>, options: RequestOptions = {}): Promise<PortalFile> {
+    return this.#withSession(async () => {
+      const res = await this.#http.requestBytes(this.#get(path, query, options));
+      assertOk(res, path);
+      return readFile(res, path);
     });
   }
 
@@ -135,6 +139,19 @@ export class PortalSession {
     const { context } = await this.ensureSession();
     if (periodo === undefined) return context;
     return toActiveContext(this.#record(periodo));
+  }
+
+  /** A GET for the enrollment the options ask about. Runs inside `#withSession`, so after a new login it reads the new records. */
+  #get(path: string, query: Record<string, QueryValue>, options: RequestOptions): PortalRequest {
+    const record = this.#record(options.periodo);
+    // The page sends `encodeURI(id)`, which its query serializer then encodes again (ENDPOINTS.md 4.8).
+    const fullQuery = options.contextParam ? { ...query, [options.contextParam]: encodeURI(record.IDCONTEXTOALUNO) } : query;
+    return {
+      method: 'GET',
+      url: apiUrl(this.config.baseUrl, path, fullQuery),
+      // The jar holds the session's enrollment; another one goes with this request only.
+      ...(record.CODPERLET === this.#state?.context.codPerLet ? {} : { cookies: { [CONTEXT_COOKIE]: record.IDCONTEXTOALUNO } }),
+    };
   }
 
   #record(periodo: string | undefined): ContextRecord {

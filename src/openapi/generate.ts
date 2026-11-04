@@ -5,7 +5,7 @@
 import { z } from 'zod';
 import { DEFAULT_CONFIG, PORTAL_ERROR_CODES } from '../core/index.js';
 import { ERROR_DESCRIPTIONS, ERROR_STATUS, apiErrorSchema, type ApiErrorCode } from '../http/errors.js';
-import { TAGS, operations as allOperations, type Callout, type Operation } from '../operations/index.js';
+import { TAGS, operations as allOperations, isFileOperation, type Callout, type Operation } from '../operations/index.js';
 import { VERSION } from '../version.js';
 
 export const DEFAULT_SERVER_URL = 'http://127.0.0.1:4321';
@@ -101,6 +101,25 @@ function errorResponses(codes: ApiErrorCode[]): Record<string, JsonSchema> {
   return responses;
 }
 
+/** The 200 response: the output schema and example, or the file's media types. */
+function okResponse(operation: Operation): JsonSchema {
+  if (isFileOperation(operation)) {
+    return {
+      description: operation.file.description,
+      headers: {
+        'Content-Disposition': { description: 'Sempre `attachment`, com o nome do arquivo.', schema: { type: 'string' } },
+      },
+      content: Object.fromEntries(
+        operation.file.mediaTypes.map((type) => [type, { schema: { type: 'string', contentMediaType: type } }]),
+      ),
+    };
+  }
+  return {
+    description: operation.summary,
+    content: { 'application/json': { schema: jsonSchema(operation.output, 'output'), example: operation.example } },
+  };
+}
+
 function operationObject(operation: Operation): JsonSchema {
   const errorCodes = [...OPERATION_LOCAL_ERRORS, ...(Object.keys(PORTAL_ERROR_CODES) as ApiErrorCode[])];
   return {
@@ -109,13 +128,7 @@ function operationObject(operation: Operation): JsonSchema {
     summary: operation.summary,
     description: operationDescription(operation),
     parameters: parameters(operation),
-    responses: {
-      '200': {
-        description: operation.summary,
-        content: { 'application/json': { schema: jsonSchema(operation.output, 'output'), example: operation.example } },
-      },
-      ...errorResponses(errorCodes),
-    },
+    responses: { '200': okResponse(operation), ...errorResponses(errorCodes) },
     'x-upstream': operation.upstream,
   };
 }

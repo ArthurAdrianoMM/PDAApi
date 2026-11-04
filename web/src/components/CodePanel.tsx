@@ -5,6 +5,13 @@ import { CopyButton } from './CopyButton';
 import { JsonView } from './JsonView';
 import { InlineText } from './Markdown';
 
+/** A file the server answered with, kept as an object URL until the result is cleared. */
+export interface ResultFile {
+  url: string;
+  name: string | null;
+  type: string;
+}
+
 export interface ApiResult {
   /** 0 when the local server did not answer. */
   status: number;
@@ -13,6 +20,21 @@ export interface ApiResult {
   bytes: number;
   body: unknown;
   isJson: boolean;
+  file?: ResultFile;
+}
+
+function FileResult({ file }: { file: ResultFile }) {
+  return (
+    <div className="file-result">
+      {file.type.startsWith('image/') && <img className="file-result__preview" src={file.url} alt="Arquivo recebido" />}
+      <p className="code-panel__hint">
+        <a href={file.url} download={file.name ?? 'arquivo'}>
+          Baixar {file.name ?? 'arquivo'}
+        </a>{' '}
+        <span className="muted">· {file.type}</span>
+      </p>
+    </div>
+  );
 }
 
 function formatBytes(bytes: number): string {
@@ -47,7 +69,7 @@ export function CodePanel({ model, operation, values, result, token }: CodePanel
   const [language, setLanguage] = useState<SampleLanguage>('curl');
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
   const url = buildUrl(model.serverUrl || location.origin, operation, values);
-  const sample = buildSample(language, url);
+  const sample = buildSample(language, url, operation.file !== null);
 
   function onTabKey(event: KeyboardEvent<HTMLButtonElement>, index: number) {
     const step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
@@ -109,10 +131,18 @@ export function CodePanel({ model, operation, values, result, token }: CodePanel
       <div className="code-panel__response" aria-live="polite">
         <div className="code-panel__head">
           <span className="overline">{result ? 'Sua resposta' : 'Exemplo de resposta'}</span>
-          {result ? <ResultStatus result={result} /> : <span className="muted">dados fictícios</span>}
+          {result ? <ResultStatus result={result} /> : !operation.file && <span className="muted">dados fictícios</span>}
         </div>
         {result === null ? (
-          <JsonView value={operation.example} label="Exemplo de resposta" />
+          operation.file ? (
+            <p className="code-panel__hint">
+              A resposta é um arquivo ({operation.file.mediaTypes.join(', ')}). Envie a requisição para baixá-lo.
+            </p>
+          ) : (
+            <JsonView value={operation.example} label="Exemplo de resposta" />
+          )
+        ) : result.file ? (
+          <FileResult file={result.file} />
         ) : result.status === 0 ? (
           <p className="code-panel__hint">O servidor local não respondeu. Ele ainda está rodando no terminal?</p>
         ) : result.isJson ? (

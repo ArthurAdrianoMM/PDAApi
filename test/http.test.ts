@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../src/http/app.js';
-import { defineOperation, type Operation } from '../src/operations/index.js';
+import { defineFileOperation, defineOperation, type Operation } from '../src/operations/index.js';
 import { listarPeriodos } from '../src/operations/periodos.js';
 import {
   ORIGIN,
@@ -427,5 +427,24 @@ describe('endpoints end to end', () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({ idTurmaDisc: 48213, etapas: [{ codigo: 0, tipo: 'falta', frequenciaMinima: 75 }] });
     expect((await authed('/disciplinas/48213/etapas?tipo=prova')).status).toBe(400);
+  });
+
+  it('serves a file operation as a sandboxed download', async () => {
+    const pdf = defineFileOperation({
+      ...listarPeriodos,
+      id: 'baixarTeste',
+      path: '/teste/arquivo',
+      file: { mediaTypes: ['application/pdf'], description: 'Um PDF.' },
+      handler: async () => ({ nome: 'Calendário 2026.pdf', tipo: 'application/pdf', conteudo: new Uint8Array([0x25, 0x50, 0x44, 0x46]) }),
+    });
+    const { authed } = setup({}, [pdf]);
+    const res = await authed('/teste/arquivo');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe('application/pdf');
+    expect(res.headers.get('content-disposition')).toBe(`attachment; filename="Calendario 2026.pdf"; filename*=UTF-8''Calend%C3%A1rio%202026.pdf`);
+    expect(res.headers.get('content-security-policy')).toBe("default-src 'none'; sandbox");
+    expect(res.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(res.headers.get('cache-control')).toBe('no-store');
+    expect(new Uint8Array(await res.arrayBuffer())).toEqual(new Uint8Array([0x25, 0x50, 0x44, 0x46]));
   });
 });

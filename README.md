@@ -55,6 +55,7 @@ Token:        …
 - The docs page is built into `dist/web` and served by this server, fonts included (no CDN). Its Content-Security-Policy allows scripts, styles and requests only to this server, with no inline code.
 - The password goes from the page to this server and from here to the portal only. The server keeps it in memory, to log in again when the portal expires the session; it is never written to disk or logged.
 - The page keeps the token in `sessionStorage` (this tab only), or in `localStorage` when "Lembrar de mim" is ticked. A token from the startup link reaches the page in the `#hash`, which browsers never send to servers, and is removed from the address bar.
+- Files from the portal (materials, the profile photo) are sent as `attachment` with `Content-Security-Policy: default-src 'none'; sandbox`, so a file can never run as a page of this server, where the token lives. The docs page allows `blob:` images only to preview a photo it downloaded itself.
 - The request log has method, path, status and time. No query strings, no bodies.
 
 ## Development

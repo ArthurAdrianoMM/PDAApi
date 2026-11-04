@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { PortalSession, type PortalErrorCode } from '../src/core/index.js';
+import { filenameOf } from '../src/core/response.js';
 import {
   CONTEXT_COOKIE,
   ORIGIN,
@@ -291,5 +292,56 @@ describe('requests with a session', () => {
     session.forget();
     expect(session.isLoggedIn).toBe(false);
     expect(portal.requests.length).toBe(before);
+  });
+});
+
+describe('files', () => {
+  const PDF = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31]);
+  const fileRoute = (headers: Record<string, string>, body: Uint8Array | string = PDF) => () => new Response(body, { status: 200, headers });
+
+  it('reads a download as bytes, with its type and the name in Content-Disposition', async () => {
+    const { session } = setup({
+      routes: {
+        'TOTVSEducacional/Material/Download': fileRoute({
+          'content-type': 'application/octet-stream',
+          'content-disposition': 'attachment; filename="=?utf-8?B?UmVndWxhbWVudG8gQ3JlbsOnYXMuUERG?="',
+        }),
+      },
+    });
+    const file = await session.getFile('TOTVSEducacional/Material/Download', { idMaterialSec: 1 });
+    expect(file).toEqual({ bytes: PDF, contentType: 'application/octet-stream', filename: 'Regulamento Crenças.PDF' });
+  });
+
+  it('reports a JSON answer where a file was expected, with the portal messages when there are any', async () => {
+    const { session } = setup({
+      routes: {
+        'TOTVSEducacional/Material/Download': fileRoute(
+          { 'content-type': 'application/json; charset=utf-8' },
+          JSON.stringify({ data: { 'RMException:Message': 'x' }, messages: [{ type: 'error', detail: 'Arquivo não encontrado' }] }),
+        ),
+        'TOTVSEducacional/Outro': fileRoute({ 'content-type': 'application/json' }, JSON.stringify({ data: [], messages: [] })),
+      },
+    });
+    await expectCode(session.getFile('TOTVSEducacional/Material/Download', {}), 'erro_do_portal');
+    await expectCode(session.getFile('TOTVSEducacional/Outro', {}), 'resposta_inesperada');
+  });
+
+  it('logs in again once when a download hits an expired session', async () => {
+    const { portal, session } = setup({ routes: { 'TOTVSEducacional/Material/Download': fileRoute({ 'content-type': 'application/pdf' }) } });
+    await session.login();
+    portal.expireSession();
+    await expect(session.getFile('TOTVSEducacional/Material/Download', {})).resolves.toMatchObject({ contentType: 'application/pdf' });
+    expect(portal.logins).toBe(2);
+  });
+
+  it.each([
+    ['attachment; filename=Plano.PDF', 'Plano.PDF'],
+    ['attachment; filename="a \\"b\\".pdf"', 'a "b".pdf'],
+    ["attachment; filename*=UTF-8''Gr%C3%A1fico.pdf; filename=x.pdf", 'Gráfico.pdf'],
+    ['attachment; filename="=?iso-8859-1?Q?Fran=E7a_x.pdf?="', 'França x.pdf'],
+    ['attachment', null],
+    [null, null],
+  ])('reads the file name in %j', (header, name) => {
+    expect(filenameOf(header)).toBe(name);
   });
 });

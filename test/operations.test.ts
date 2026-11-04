@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { TAGS, operations, runOperation, type Operation } from '../src/operations/index.js';
+import { TAGS, isFileOperation, operations, runOperation, type JsonOperation } from '../src/operations/index.js';
 import { listarAulas } from '../src/operations/aulas.js';
 import { listarAulasDaDisciplina, obterAula } from '../src/operations/aulas-disciplina.js';
 import { listarEventosDoCalendario } from '../src/operations/calendario.js';
@@ -22,7 +22,8 @@ const CONTEXT_ID = 'ctx+B/2==';
 const sessionWith = (routes: Record<string, DataRoute>) => createTestSession({ routes });
 
 describe('operation definitions', () => {
-  it.each(operations.map((op) => [op.id, op] as const))('%s: example satisfies the output schema', (_, op) => {
+  const jsonOperations = operations.filter((op): op is JsonOperation => !isFileOperation(op));
+  it.each(jsonOperations.map((op) => [op.id, op] as const))('%s: example satisfies the output schema', (_, op) => {
     expect(op.output.safeParse(op.example).success).toBe(true);
   });
 
@@ -436,7 +437,7 @@ describe('obterHorario', () => {
 
 describe('periodo', () => {
   /** The smallest valid answer of each period-scoped operation's portal call. */
-  const cases: { op: Operation; path: string; data: unknown }[] = [
+  const cases: { op: JsonOperation; path: string; data: unknown }[] = [
     { op: listarDisciplinas, path: 'TOTVSEducacional/DisciplinasAlunoPeriodoLetivo', data: [] },
     { op: obterNotas, path: 'TOTVSEducacional/NotaEtapa', data: { Notas: [] } },
     { op: obterFaltas, path: 'TOTVSEducacional/FaltaEtapa', data: { FaltasEtapa: [] } },

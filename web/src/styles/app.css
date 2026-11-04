@@ -745,6 +745,13 @@ kbd {
   font-size: 13px;
   color: var(--text-5);
 }
+.file-result__preview {
+  display: block;
+  max-width: 100%;
+  max-height: 320px;
+  margin: 0 18px 12px;
+  border-radius: 8px;
+}
 .code-panel__hint--token {
   display: flex;
   flex-wrap: wrap;

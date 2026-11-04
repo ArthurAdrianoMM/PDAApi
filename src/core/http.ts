@@ -25,6 +25,15 @@ export interface PortalResponse {
   body: string;
 }
 
+/** A response read as bytes, for file downloads. */
+export interface PortalBytesResponse {
+  status: number;
+  location: string | null;
+  /** `Content-Type`, `Content-Disposition` and the rest, as the portal sent them. */
+  headers: Headers;
+  bytes: Uint8Array<ArrayBuffer>;
+}
+
 /** The frontend's `accept` header for API calls (ENDPOINTS.md 1). */
 const ACCEPT = 'application/json, text/plain, */*';
 
@@ -46,7 +55,20 @@ export class PortalHttp {
   }
 
   request(req: PortalRequest): Promise<PortalResponse> {
-    return this.#schedule(() => this.#send(req));
+    return this.#schedule(async () => {
+      const res = await this.#send(req);
+      const body = await this.#read(res, req, () => res.text());
+      return { status: res.status, location: res.headers.get('location'), body };
+    });
+  }
+
+  /** Like `request`, reading the body as bytes. */
+  requestBytes(req: PortalRequest): Promise<PortalBytesResponse> {
+    return this.#schedule(async () => {
+      const res = await this.#send(req);
+      const bytes = await this.#read(res, req, async () => new Uint8Array(await res.arrayBuffer()));
+      return { status: res.status, location: res.headers.get('location'), headers: res.headers, bytes };
+    });
   }
 
   /** Sets a host-only cookie on the portal origin, path `/`. The value is stored as is, not URL-encoded. */
@@ -60,7 +82,8 @@ export class PortalHttp {
     this.#jar = new CookieJar();
   }
 
-  async #send({ method, url, json, cookies: overrides = {} }: PortalRequest): Promise<PortalResponse> {
+  /** Sends the request and stores the cookies it sets. The body is left for the caller to read. */
+  async #send({ method, url, json, cookies: overrides = {} }: PortalRequest): Promise<Response> {
     const headers = new Headers({ accept: ACCEPT, 'user-agent': this.#config.userAgent });
     const jar = (await this.#jar.getCookies(url.href)).sort(cookieCompare).filter((c) => !Object.hasOwn(overrides, c.key));
     const cookies = [...jar.map((c) => c.cookieString()), ...Object.entries(overrides).map(([name, value]) => `${name}=${value}`)];
@@ -88,14 +111,14 @@ export class PortalHttp {
     for (const setCookie of res.headers.getSetCookie()) {
       await this.#jar.setCookie(setCookie, url.href, { ignoreError: true });
     }
+    return res;
+  }
 
-    let text: string;
+  async #read<T>(res: Response, { method, url }: PortalRequest, read: () => Promise<T>): Promise<T> {
     try {
-      text = await res.text();
+      return await read();
     } catch (cause) {
       throw new PortalError('portal_indisponivel', `A resposta do portal foi interrompida (${method} ${url.pathname}).`, { cause });
     }
-
-    return { status: res.status, location: res.headers.get('location'), body: text };
   }
 }
