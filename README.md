@@ -7,7 +7,7 @@ Class project, not official, not affiliated with SENAI or FIEB. Scope and limits
 ## Status
 
 - [x] Core client: login, context cookie, re-login on expiry, rate limit (`src/core`)
-- [x] Operations: `/periodos`, `/disciplinas`, `/notas`, `/faltas`, `/faltas/aulas`, `/horario`, `/aulas`, `/disciplinas/{idTurmaDisc}/aulas`, `/disciplinas/{idTurmaDisc}/aulas/{idPlanoAula}`, `/calendario`, `/grade-curricular` (`src/operations`)
+- [x] Operations: `/periodos`, `/disciplinas`, `/notas`, `/faltas`, `/faltas/aulas`, `/horario`, `/aulas`, `/disciplinas/{idTurmaDisc}/aulas`, `/disciplinas/{idTurmaDisc}/aulas/{idPlanoAula}`, `/disciplinas/{idTurmaDisc}/etapas`, `/calendario`, `/grade-curricular` (`src/operations`)
 - [x] OpenAPI 3.1 document generated from the operations ([openapi.json](openapi.json))
 - [x] Local server (`portal-aluno serve`)
 - [x] Docs page with "testar", built from `openapi.json` (`web/`)

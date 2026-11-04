@@ -7,11 +7,13 @@ import { listarDisciplinas } from '../src/operations/disciplinas.js';
 import { obterHorario } from '../src/operations/horario.js';
 import { obterNotas } from '../src/operations/notas.js';
 import { obterFaltas } from '../src/operations/faltas.js';
+import { listarEtapasDaDisciplina } from '../src/operations/etapas.js';
 import { listarFaltasPorAula } from '../src/operations/faltas-aulas.js';
 import { obterGradeCurricular } from '../src/operations/grade-curricular.js';
 import { listarPeriodos } from '../src/operations/periodos.js';
 import { AULAS_DISCIPLINA, PLANO_AULA } from './fixtures/aulas-disciplina.js';
 import { CALENDARIO } from './fixtures/calendario.js';
+import { ETAPAS_FALTA, ETAPAS_NOTA } from './fixtures/etapas.js';
 import { GRADE_CURRICULAR } from './fixtures/grade-curricular.js';
 import { CONTEXT_COOKIE, academicRoute, contextRoute, createTestSession, type DataRoute } from './support/fake-portal.js';
 
@@ -853,5 +855,58 @@ describe('listarEventosDoCalendario', () => {
     const { session } = sessionFor();
     await expect(runOperation(listarEventosDoCalendario, session, {})).resolves.toMatchObject({ de: '2026-11-04', ate: '2026-12-04' });
     await expect(runOperation(listarEventosDoCalendario, session, { ate: '2026-11-30' })).resolves.toMatchObject({ de: '2026-10-31' });
+  });
+});
+
+describe('listarEtapasDaDisciplina', () => {
+  const sessionFor = () =>
+    sessionWith({
+      'TOTVSEducacional/DisciplinasAlunoPeriodoLetivo': academicRoute(CONTEXT_ID, [
+        { IDTURMADISC: 48213, CODDISC: 'PW2', NOME: 'Programação Web II', CODTURMA: 'DS-2026-A', CODSUBTURMA: null, IDPERLET: 1042, CODSTATUS: 20, DESCRICAO: 'Matriculado' },
+      ]),
+      'TOTVSEducacional/EtapasTurmaDisc': (req) =>
+        academicRoute(CONTEXT_ID, req.url.searchParams.get('tipoEtapaTurmaDisc') === 'F' ? ETAPAS_FALTA : ETAPAS_NOTA)(req),
+    });
+
+  it('lists the grade stages and then the absence stages, each in stage order', async () => {
+    const { portal, session } = sessionFor();
+    const result = await runOperation(listarEtapasDaDisciplina, session, { idTurmaDisc: 48213 });
+
+    expect(result).toMatchObject({ periodo: '2026S2', idTurmaDisc: 48213 });
+    expect(result.etapas.map((e) => [e.tipo, e.codigo, e.nome])).toEqual([
+      ['nota', 1, 'AV 1 / AV QT 1'],
+      ['nota', 2, 'AV 2 / AV QT 2'],
+      ['falta', 0, 'Faltas'],
+    ]);
+    expect(result.etapas[2]).toEqual({
+      codigo: 0,
+      tipo: 'falta',
+      nome: 'Faltas',
+      pontosDistribuidos: null,
+      media: null,
+      frequenciaMinima: 75,
+      aulasDadas: 38,
+      aulasPrevistas: null,
+      inicio: '2021-07-01',
+      fim: '2030-12-31',
+      lancamento: { inicio: '2026-08-03', limite: '2026-12-26' },
+      encerrada: false,
+      final: true,
+      disponivelParaAlunos: true,
+    });
+    expect(result.etapas[0]).toMatchObject({ pontosDistribuidos: 10, frequenciaMinima: null, final: null });
+    const sent = portal.requests.filter((r) => r.url.pathname.endsWith('EtapasTurmaDisc')).map((r) => Object.fromEntries(r.url.searchParams));
+    expect(sent).toEqual([
+      { idTurmaDisc: '48213', tipoEtapaTurmaDisc: 'N' },
+      { idTurmaDisc: '48213', tipoEtapaTurmaDisc: 'F' },
+    ]);
+  });
+
+  it('asks for one type only when given, and checks the class first', async () => {
+    const { portal, session } = sessionFor();
+    const result = await runOperation(listarEtapasDaDisciplina, session, { idTurmaDisc: 48213, tipo: 'falta' });
+    expect(result.etapas.map((e) => e.tipo)).toEqual(['falta']);
+    expect(portal.paths().filter((p) => p.endsWith('EtapasTurmaDisc'))).toHaveLength(1);
+    await expect(runOperation(listarEtapasDaDisciplina, session, { idTurmaDisc: 1 })).rejects.toMatchObject({ code: 'item_inexistente' });
   });
 });

@@ -1713,6 +1713,463 @@
         ]
       }
     },
+    "/disciplinas/{idTurmaDisc}/etapas": {
+      "get": {
+        "operationId": "listarEtapasDaDisciplina",
+        "tags": [
+          "Desempenho"
+        ],
+        "summary": "Etapas de uma disciplina",
+        "description": "Lista as etapas de avaliação de uma disciplina: as de nota, com os pontos que cada uma vale, e as de falta, com a frequência mínima e as aulas dadas até agora. Os números de etapa são os mesmos de `/notas` e `/faltas`.\n\n> [!NOTE]\n> **Frequência mínima e percentual de faltas**\n>\n> `frequenciaMinima` é a frequência que a disciplina exige, em %. O `percentual` de `/faltas` conta as faltas sobre o total de aulas da disciplina, não sobre `aulasDadas`: na conta testada, os dois só coincidiram nas disciplinas já terminadas. O portal não informa esse total (`aulasPrevistas` veio `null`), então a API não calcula quantas faltas ainda cabem.\n\n> [!WARNING]\n> **Nem toda etapa de `/notas` está aqui**\n>\n> Na conta testada, `/notas` trouxe uma etapa de nota que esta lista não tinha, e uma disciplina sem nenhuma etapa de nota aqui também não apareceu em `/notas`. Use esta lista para os pesos e prazos, e `/notas` para as notas.\n\n> [!NOTE]\n> **De onde vêm os dados**\n>\n> O servidor local chama `TOTVSEducacional/DisciplinasAlunoPeriodoLetivo`, `TOTVSEducacional/EtapasTurmaDisc` no portal. A resposta vai do portal para o seu computador e para mais nenhum lugar.",
+        "parameters": [
+          {
+            "name": "idTurmaDisc",
+            "in": "path",
+            "required": true,
+            "description": "ID da turma da disciplina, como em `/disciplinas`.",
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          },
+          {
+            "name": "tipo",
+            "in": "query",
+            "required": false,
+            "description": "Só as etapas deste tipo. Sem ele, vêm as duas.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "nota",
+                "falta"
+              ]
+            }
+          },
+          {
+            "name": "periodo",
+            "in": "query",
+            "required": false,
+            "description": "Código do período, como em `/periodos` (ex.: `2026S1`). Padrão: o período da matrícula da sessão.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Etapas de uma disciplina",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "periodo": {
+                      "type": "string",
+                      "description": "Código do período respondido (ex.: `2026S2`)."
+                    },
+                    "idTurmaDisc": {
+                      "type": "integer",
+                      "description": "A disciplina pedida."
+                    },
+                    "etapas": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "codigo": {
+                            "type": "integer",
+                            "description": "`CODETAPA`. É o `etapa` de `/notas` e de `/faltas`."
+                          },
+                          "tipo": {
+                            "type": "string",
+                            "enum": [
+                              "nota",
+                              "falta"
+                            ],
+                            "description": "Etapa de notas ou de faltas (`TIPOETAPA` `N` ou `F`)."
+                          },
+                          "nome": {
+                            "type": "string",
+                            "description": "Nome da etapa, como em `/notas` e `/faltas` (ex.: `AV 1 / AV QT 1`, `Faltas`)."
+                          },
+                          "pontosDistribuidos": {
+                            "description": "Pontos que a etapa vale (`PONTDIST`), nas etapas de nota.",
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "media": {
+                            "description": "Média da etapa (`MEDIA`), quando a escola define.",
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "frequenciaMinima": {
+                            "description": "Frequência mínima para aprovação, em % (`FREQMIN`), nas etapas de falta.",
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "aulasDadas": {
+                            "description": "Aulas dadas até agora (`AULASDADAS`), nas etapas de falta.",
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "aulasPrevistas": {
+                            "description": "Aulas previstas (`AULASPREVISTAS`), quando a escola informa.",
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "inicio": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Início da etapa."
+                          },
+                          "fim": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Fim da etapa."
+                          },
+                          "lancamento": {
+                            "type": "object",
+                            "properties": {
+                              "inicio": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "date",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "Primeiro dia em que o professor pode lançar (`DTINICIODIGITACAO`)."
+                              },
+                              "limite": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "date",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "Último dia para lançar (`DTLIMITEDIGITACAO`)."
+                              }
+                            },
+                            "required": [
+                              "inicio",
+                              "limite"
+                            ],
+                            "additionalProperties": false,
+                            "description": "O prazo de lançamento de notas ou faltas pelo professor."
+                          },
+                          "encerrada": {
+                            "description": "Se a etapa foi encerrada (`ETAPAENCERRADA`).",
+                            "type": [
+                              "boolean",
+                              "null"
+                            ]
+                          },
+                          "final": {
+                            "description": "Se é a etapa final (`ETAPAFINAL`).",
+                            "type": [
+                              "boolean",
+                              "null"
+                            ]
+                          },
+                          "disponivelParaAlunos": {
+                            "description": "Se o portal mostra a etapa aos alunos (`DISPONIVELALUNOS`).",
+                            "type": [
+                              "boolean",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "codigo",
+                          "tipo",
+                          "nome",
+                          "pontosDistribuidos",
+                          "media",
+                          "frequenciaMinima",
+                          "aulasDadas",
+                          "aulasPrevistas",
+                          "inicio",
+                          "fim",
+                          "lancamento",
+                          "encerrada",
+                          "final",
+                          "disponivelParaAlunos"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "description": "As etapas de nota e depois as de falta, cada grupo em ordem de etapa."
+                    }
+                  },
+                  "required": [
+                    "periodo",
+                    "idTurmaDisc",
+                    "etapas"
+                  ],
+                  "additionalProperties": false
+                },
+                "example": {
+                  "periodo": "2026S2",
+                  "idTurmaDisc": 48213,
+                  "etapas": [
+                    {
+                      "codigo": 1,
+                      "tipo": "nota",
+                      "nome": "AV 1 / AV QT 1",
+                      "pontosDistribuidos": 10,
+                      "media": null,
+                      "frequenciaMinima": null,
+                      "aulasDadas": null,
+                      "aulasPrevistas": null,
+                      "inicio": null,
+                      "fim": null,
+                      "lancamento": {
+                        "inicio": "2026-08-03",
+                        "limite": "2026-12-18"
+                      },
+                      "encerrada": false,
+                      "final": null,
+                      "disponivelParaAlunos": true
+                    },
+                    {
+                      "codigo": 0,
+                      "tipo": "falta",
+                      "nome": "Faltas",
+                      "pontosDistribuidos": null,
+                      "media": null,
+                      "frequenciaMinima": 75,
+                      "aulasDadas": 38,
+                      "aulasPrevistas": null,
+                      "inicio": "2026-08-03",
+                      "fim": "2026-12-18",
+                      "lancamento": {
+                        "inicio": "2026-08-03",
+                        "limite": "2026-12-18"
+                      },
+                      "encerrada": false,
+                      "final": true,
+                      "disponivelParaAlunos": true
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`parametro_invalido`: Um parâmetro está faltando, sobrando ou com o tipo errado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "parametro_invalido": {
+                    "summary": "parametro_invalido",
+                    "value": {
+                      "erro": "parametro_invalido",
+                      "mensagem": "Um parâmetro está faltando, sobrando ou com o tipo errado."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`token_invalido`: O token local está ausente ou errado. Entre de novo pela documentação (/docs/) para receber um novo.\n\n`login_falhou`: O portal não completou o login. Confira o usuário e a senha.\n\n`sessao_expirada`: O portal recusou a sessão, e um novo login não resolveu.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "token_invalido": {
+                    "summary": "token_invalido",
+                    "value": {
+                      "erro": "token_invalido",
+                      "mensagem": "O token local está ausente ou errado. Entre de novo pela documentação (/docs/) para receber um novo."
+                    }
+                  },
+                  "login_falhou": {
+                    "summary": "login_falhou",
+                    "value": {
+                      "erro": "login_falhou",
+                      "mensagem": "O portal não completou o login. Confira o usuário e a senha."
+                    }
+                  },
+                  "sessao_expirada": {
+                    "summary": "sessao_expirada",
+                    "value": {
+                      "erro": "sessao_expirada",
+                      "mensagem": "O portal recusou a sessão, e um novo login não resolveu."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`portal_recusou`: O portal negou o acesso (HTTP 403). A API repassa a recusa e não tenta outro caminho.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "portal_recusou": {
+                    "summary": "portal_recusou",
+                    "value": {
+                      "erro": "portal_recusou",
+                      "mensagem": "O portal negou o acesso (HTTP 403). A API repassa a recusa e não tenta outro caminho."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`periodo_inexistente`: A conta não tem matrícula no período pedido. Os períodos estão em /periodos.\n\n`item_inexistente`: O ID pedido não está entre os que o portal lista para esta conta (por exemplo, uma disciplina de outro período).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "periodo_inexistente": {
+                    "summary": "periodo_inexistente",
+                    "value": {
+                      "erro": "periodo_inexistente",
+                      "mensagem": "A conta não tem matrícula no período pedido. Os períodos estão em /periodos."
+                    }
+                  },
+                  "item_inexistente": {
+                    "summary": "item_inexistente",
+                    "value": {
+                      "erro": "item_inexistente",
+                      "mensagem": "O ID pedido não está entre os que o portal lista para esta conta (por exemplo, uma disciplina de outro período)."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`erro_interno`: Erro no servidor local. Veja o terminal onde ele está rodando.\n\n`configuracao_invalida`: A configuração não combina com o que o portal retornou (alias ou período).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "erro_interno": {
+                    "summary": "erro_interno",
+                    "value": {
+                      "erro": "erro_interno",
+                      "mensagem": "Erro no servidor local. Veja o terminal onde ele está rodando."
+                    }
+                  },
+                  "configuracao_invalida": {
+                    "summary": "configuracao_invalida",
+                    "value": {
+                      "erro": "configuracao_invalida",
+                      "mensagem": "A configuração não combina com o que o portal retornou (alias ou período)."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`sem_contexto`: O portal pediu um contexto de matrícula que a sessão não tem.\n\n`erro_do_portal`: O portal retornou um erro dentro da resposta.\n\n`resposta_inesperada`: A resposta do portal não tem o formato documentado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "sem_contexto": {
+                    "summary": "sem_contexto",
+                    "value": {
+                      "erro": "sem_contexto",
+                      "mensagem": "O portal pediu um contexto de matrícula que a sessão não tem."
+                    }
+                  },
+                  "erro_do_portal": {
+                    "summary": "erro_do_portal",
+                    "value": {
+                      "erro": "erro_do_portal",
+                      "mensagem": "O portal retornou um erro dentro da resposta."
+                    }
+                  },
+                  "resposta_inesperada": {
+                    "summary": "resposta_inesperada",
+                    "value": {
+                      "erro": "resposta_inesperada",
+                      "mensagem": "A resposta do portal não tem o formato documentado."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "`portal_indisponivel`: Não foi possível falar com o portal: sem conexão, tempo esgotado ou erro 5xx.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "portal_indisponivel": {
+                    "summary": "portal_indisponivel",
+                    "value": {
+                      "erro": "portal_indisponivel",
+                      "mensagem": "Não foi possível falar com o portal: sem conexão, tempo esgotado ou erro 5xx."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-upstream": [
+          "TOTVSEducacional/DisciplinasAlunoPeriodoLetivo",
+          "TOTVSEducacional/EtapasTurmaDisc"
+        ]
+      }
+    },
     "/grade-curricular": {
       "get": {
         "operationId": "obterGradeCurricular",

@@ -18,6 +18,7 @@ import {
 } from './support/fake-portal.js';
 import { AULAS_DISCIPLINA, PLANO_AULA } from './fixtures/aulas-disciplina.js';
 import { CALENDARIO } from './fixtures/calendario.js';
+import { ETAPAS_FALTA } from './fixtures/etapas.js';
 import { GRADE_CURRICULAR } from './fixtures/grade-curricular.js';
 
 const TOKEN = 'token-de-teste';
@@ -411,5 +412,20 @@ describe('endpoints end to end', () => {
 
     const unknown = await authed('/calendario?periodo=2026S1');
     expect(unknown.status).toBe(400);
+  });
+
+  it('GET /disciplinas/{idTurmaDisc}/etapas: grade and absence stages of one class', async () => {
+    const { authed } = setup({
+      routes: {
+        'TOTVSEducacional/DisciplinasAlunoPeriodoLetivo': academicRoute(CONTEXT_ID, [
+          { IDTURMADISC: 48213, CODDISC: 'PW2', NOME: 'Programação Web II', CODTURMA: 'DS-2026-A', CODSUBTURMA: null, IDPERLET: 1042, CODSTATUS: 20, DESCRICAO: 'Matriculado' },
+        ]),
+        'TOTVSEducacional/EtapasTurmaDisc': academicRoute(CONTEXT_ID, ETAPAS_FALTA),
+      },
+    });
+    const res = await authed('/disciplinas/48213/etapas?tipo=falta');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ idTurmaDisc: 48213, etapas: [{ codigo: 0, tipo: 'falta', frequenciaMinima: 75 }] });
+    expect((await authed('/disciplinas/48213/etapas?tipo=prova')).status).toBe(400);
   });
 });
