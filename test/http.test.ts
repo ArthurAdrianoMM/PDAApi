@@ -19,6 +19,7 @@ import {
 import { AULAS_DISCIPLINA, PLANO_AULA } from './fixtures/aulas-disciplina.js';
 import { CALENDARIO } from './fixtures/calendario.js';
 import { ETAPAS_FALTA } from './fixtures/etapas.js';
+import { MATERIAIS_INSTITUCIONAIS, PDF, downloadResponse } from './fixtures/materiais.js';
 import { GRADE_CURRICULAR } from './fixtures/grade-curricular.js';
 
 const TOKEN = 'token-de-teste';
@@ -446,5 +447,30 @@ describe('endpoints end to end', () => {
     expect(res.headers.get('x-content-type-options')).toBe('nosniff');
     expect(res.headers.get('cache-control')).toBe('no-store');
     expect(new Uint8Array(await res.arrayBuffer())).toEqual(new Uint8Array([0x25, 0x50, 0x44, 0x46]));
+  });
+
+  it('GET /materiais and /materiais/{idMaterial}/arquivo: list, then download as a sandboxed attachment', async () => {
+    const { authed } = setup({
+      routes: {
+        'TOTVSEducacional/Material/Institucional': academicRoute(CONTEXT_ID, MATERIAIS_INSTITUCIONAIS),
+        'TOTVSEducacional/Material': academicRoute(CONTEXT_ID, []),
+        'TOTVSEducacional/Material/Download': () => downloadResponse(),
+      },
+    });
+    const list = await authed('/materiais');
+    expect(list.status).toBe(200);
+    const { materiais } = (await list.json()) as { materiais: { idMaterial: number }[] };
+    expect(materiais.map((m) => m.idMaterial)).toEqual([3201, 3150]);
+
+    const res = await authed('/materiais/3150/arquivo');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe('application/pdf');
+    expect(res.headers.get('content-disposition')).toContain("filename*=UTF-8''Calend%C3%A1rio%20acad%C3%AAmico%202026%20(vers%C3%A3o%202).pdf");
+    expect(res.headers.get('content-security-policy')).toBe("default-src 'none'; sandbox");
+    expect(new Uint8Array(await res.arrayBuffer())).toEqual(PDF);
+
+    const missing = await authed('/materiais/1/arquivo');
+    expect(missing.status).toBe(404);
+    expect(await missing.json()).toMatchObject({ erro: 'item_inexistente' });
   });
 });

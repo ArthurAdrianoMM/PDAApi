@@ -10,6 +10,7 @@ import { createApp } from '../src/http/app.js';
 import { AULAS_DISCIPLINA, PLANO_AULA } from '../test/fixtures/aulas-disciplina.js';
 import { CALENDARIO } from '../test/fixtures/calendario.js';
 import { ETAPAS_FALTA, ETAPAS_NOTA } from '../test/fixtures/etapas.js';
+import { MATERIAIS_DISCIPLINA, MATERIAIS_INSTITUCIONAIS, downloadResponse } from '../test/fixtures/materiais.js';
 import { GRADE_CURRICULAR } from '../test/fixtures/grade-curricular.js';
 import { CONTEXTS, ORIGIN, PASSWORD, USER, contextRoute, createFakePortal, fakeSession } from '../test/support/fake-portal.js';
 
@@ -66,6 +67,11 @@ const portal = createFakePortal({
     }),
     'TOTVSEducacional/GradeCurricular/EnsinoSuperior': academic(GRADE_CURRICULAR),
     'TOTVSEducacional/Aluno/CalendarioAluno': academic(CALENDARIO),
+    'TOTVSEducacional/Material/Institucional': academic(MATERIAIS_INSTITUCIONAIS),
+    'TOTVSEducacional/Material': academic([]),
+    'TOTVSEducacional/MateriaisTurmaDisciplina': academic(MATERIAIS_DISCIPLINA),
+    // Every download is the same made-up PDF header.
+    'TOTVSEducacional/Material/Download': () => downloadResponse(),
     'TOTVSEducacional/EtapasTurmaDisc': (req) => academic(req.url.searchParams.get('tipoEtapaTurmaDisc') === 'F' ? ETAPAS_FALTA : ETAPAS_NOTA)(req),
     // The fake ignores the window and the lesson asked for.
     'TOTVSEducacional/AulasDisciplina/48213': academic(AULAS_DISCIPLINA),

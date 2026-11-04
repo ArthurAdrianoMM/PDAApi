@@ -270,11 +270,18 @@ Page `#/plano-aula` calls `v1/planoaulas/aulas` for the selected day.
 
 | Path | Verified | Response | Notes |
 |---|---|---|---|
-| `TOTVSEducacional/Material/Institucional` | yes | `data[]` (32 items): `IDMATERIALSEC` (number), `DESCRICAO`, `DESCRICAOTIPOMATERIAL` (`Material P/ Aluno`, `Estágio`, `Todos`), `IDTIPOMATERIAL`, `TIPOUSUARIO`, `TIPOUSUARIOORIGEM`, `DATAEXPIRACAO`, `DATAINCLUSAO`, `CODUSRAUTOR`, `TAMANHO` (bytes), `ARQUIVO` (filename, e.g. `…docx`), `PATHARQUIVO` | Institutional documents. |
+| `TOTVSEducacional/Material/Institucional` | yes | `data[]` (32 items): `IDMATERIALSEC` (number), `DESCRICAO`, `DESCRICAOTIPOMATERIAL` (`Material P/ Aluno`, `Estágio`, `Todos`), `IDTIPOMATERIAL`, `TIPOUSUARIO`, `TIPOUSUARIOORIGEM`, `DATAEXPIRACAO`, `DATAINCLUSAO`, `CODUSRAUTOR`, `TAMANHO` (KB, see below), `ARQUIVO` (filename, e.g. `…docx`), `PATHARQUIVO` | Institutional documents. |
 | `TOTVSEducacional/Material` | yes (empty) | `data[]` empty for this student | Student-specific materials. |
 | `TOTVSEducacional/Material/Download?idMaterialSec=<id>&pathArquivo=<encodeURIComponent(PATHARQUIVO)>` | yes (headers checked) | HTTP 200, `content-type: application/octet-stream`, `content-disposition` present, file size from `content-length` (about 1 MB for a sample `.docx`) | **File download (GET).** The factory builds it this way. The body was not saved. Build the link from `IDMATERIALSEC` and `PATHARQUIVO`. |
 
-Page `#/arquivos` calls `Periodos`, `Widget/DadosWidgets?idFuncionalidade=11`, `Material/Institucional`, and `DisciplinasAlunoPeriodoLetivo?mostraApenasDiscEmCurso=true`.
+**Checked from a script (2026-11-03), shapes and headers only:**
+
+- `PATHARQUIVO` is a bare file name, the same as `ARQUIVO` in all 32 items, with spaces, accents and parentheses (no folders). `TAMANHO` is in **KB**, rounded down: 45 for a 46 999-byte file. `DATAEXPIRACAO` was set on 27 items, none in the past. `TIPOUSUARIO` was `1` or `3`, `TIPOUSUARIOORIGEM` `S`.
+- `Material` (the student's own) and `MateriaisTurmaDisciplina` for every class of 2026S2 were empty, so their item shape is not recorded. The page's views read the same fields from them as from `Material/Institucional`, plus `DATA`.
+- `Material/Download?idMaterialSec=<id>&pathArquivo=<PATHARQUIVO>`: HTTP 200, `content-type: application/octet-stream` for a PDF (it starts with `%PDF`). `Content-Disposition` names the file; a name that isn't ASCII comes as an RFC 2047 encoded word (`filename="=?utf-8?B?…?="`). The page builds the URL by hand with `encodeURIComponent(PATHARQUIVO)`; a standard query encoding (spaces as `+`) worked too.
+- A `pathArquivo` that is not the material's answered **403**.
+
+Page `#/arquivos` calls `Periodos`, `Widget/DadosWidgets?idFuncionalidade=11`, `Material/Institucional`, and `DisciplinasAlunoPeriodoLetivo?mostraApenasDiscEmCurso=true`; the class tab calls `MateriaisTurmaDisciplina?idTurmaDisc=<id>` for the chosen class.
 
 ---
 

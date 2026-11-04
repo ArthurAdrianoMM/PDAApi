@@ -31,6 +31,10 @@
     {
       "name": "Rotina",
       "description": "Horário, calendário e aulas."
+    },
+    {
+      "name": "Arquivos",
+      "description": "Materiais publicados pela escola."
     }
   ],
   "paths": {
@@ -5645,6 +5649,1065 @@
         },
         "x-upstream": [
           "TOTVSEducacional/Aluno/CalendarioAluno"
+        ]
+      }
+    },
+    "/materiais": {
+      "get": {
+        "operationId": "listarMateriais",
+        "tags": [
+          "Arquivos"
+        ],
+        "summary": "Materiais",
+        "description": "Lista os materiais publicados para você: os da instituição (regulamentos, calendários, manuais) e os enviados só para você, como a página \"Arquivos\" do portal. Os mais recentes vêm primeiro. Para os materiais de uma disciplina, use `/disciplinas/{idTurmaDisc}/materiais`.\n\n> [!NOTE]\n> **Baixar um material**\n>\n> `/materiais/{idMaterial}/arquivo` devolve o arquivo. O `idMaterial` vem desta lista.\n\n> [!NOTE]\n> **De onde vêm os dados**\n>\n> O servidor local chama `TOTVSEducacional/Material/Institucional`, `TOTVSEducacional/Material` no portal. A resposta vai do portal para o seu computador e para mais nenhum lugar.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Materiais",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "materiais": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "idMaterial": {
+                            "type": "integer",
+                            "description": "ID do material (`IDMATERIALSEC`). Baixe em `/materiais/{idMaterial}/arquivo`."
+                          },
+                          "origem": {
+                            "type": "string",
+                            "enum": [
+                              "instituicao",
+                              "aluno",
+                              "disciplina"
+                            ],
+                            "description": "De onde vem: material da instituição, material só seu, ou material de uma disciplina."
+                          },
+                          "descricao": {
+                            "description": "Título do material, como o portal mostra.",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "tipo": {
+                            "type": "object",
+                            "properties": {
+                              "codigo": {
+                                "description": "`IDTIPOMATERIAL`.",
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "descricao": {
+                                "description": "O texto do portal (ex.: `Material P/ Aluno`, `Estágio`).",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "codigo",
+                              "descricao"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "arquivo": {
+                            "description": "Nome do arquivo.",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "tamanhoKb": {
+                            "description": "Tamanho em KB (`TAMANHO`).",
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "incluidoEm": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Dia em que foi publicado (`DATAINCLUSAO`)."
+                          },
+                          "data": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "A data que o portal mostra com o material (`DATA`), quando há."
+                          },
+                          "expiraEm": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Dia em que deixa de valer (`DATAEXPIRACAO`), ou `null`."
+                          }
+                        },
+                        "required": [
+                          "idMaterial",
+                          "origem",
+                          "descricao",
+                          "tipo",
+                          "arquivo",
+                          "tamanhoKb",
+                          "incluidoEm",
+                          "data",
+                          "expiraEm"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "materiais"
+                  ],
+                  "additionalProperties": false
+                },
+                "example": {
+                  "materiais": [
+                    {
+                      "idMaterial": 3150,
+                      "origem": "instituicao",
+                      "descricao": "Calendário acadêmico 2026",
+                      "tipo": {
+                        "codigo": 2,
+                        "descricao": "Material P/ Aluno"
+                      },
+                      "arquivo": "Calendario academico 2026.pdf",
+                      "tamanhoKb": 210,
+                      "incluidoEm": "2026-02-02",
+                      "data": null,
+                      "expiraEm": "2026-12-31"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`parametro_invalido`: Um parâmetro está faltando, sobrando ou com o tipo errado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "parametro_invalido": {
+                    "summary": "parametro_invalido",
+                    "value": {
+                      "erro": "parametro_invalido",
+                      "mensagem": "Um parâmetro está faltando, sobrando ou com o tipo errado."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`token_invalido`: O token local está ausente ou errado. Entre de novo pela documentação (/docs/) para receber um novo.\n\n`login_falhou`: O portal não completou o login. Confira o usuário e a senha.\n\n`sessao_expirada`: O portal recusou a sessão, e um novo login não resolveu.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "token_invalido": {
+                    "summary": "token_invalido",
+                    "value": {
+                      "erro": "token_invalido",
+                      "mensagem": "O token local está ausente ou errado. Entre de novo pela documentação (/docs/) para receber um novo."
+                    }
+                  },
+                  "login_falhou": {
+                    "summary": "login_falhou",
+                    "value": {
+                      "erro": "login_falhou",
+                      "mensagem": "O portal não completou o login. Confira o usuário e a senha."
+                    }
+                  },
+                  "sessao_expirada": {
+                    "summary": "sessao_expirada",
+                    "value": {
+                      "erro": "sessao_expirada",
+                      "mensagem": "O portal recusou a sessão, e um novo login não resolveu."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`portal_recusou`: O portal negou o acesso (HTTP 403). A API repassa a recusa e não tenta outro caminho.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "portal_recusou": {
+                    "summary": "portal_recusou",
+                    "value": {
+                      "erro": "portal_recusou",
+                      "mensagem": "O portal negou o acesso (HTTP 403). A API repassa a recusa e não tenta outro caminho."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`periodo_inexistente`: A conta não tem matrícula no período pedido. Os períodos estão em /periodos.\n\n`item_inexistente`: O ID pedido não está entre os que o portal lista para esta conta (por exemplo, uma disciplina de outro período).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "periodo_inexistente": {
+                    "summary": "periodo_inexistente",
+                    "value": {
+                      "erro": "periodo_inexistente",
+                      "mensagem": "A conta não tem matrícula no período pedido. Os períodos estão em /periodos."
+                    }
+                  },
+                  "item_inexistente": {
+                    "summary": "item_inexistente",
+                    "value": {
+                      "erro": "item_inexistente",
+                      "mensagem": "O ID pedido não está entre os que o portal lista para esta conta (por exemplo, uma disciplina de outro período)."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`erro_interno`: Erro no servidor local. Veja o terminal onde ele está rodando.\n\n`configuracao_invalida`: A configuração não combina com o que o portal retornou (alias ou período).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "erro_interno": {
+                    "summary": "erro_interno",
+                    "value": {
+                      "erro": "erro_interno",
+                      "mensagem": "Erro no servidor local. Veja o terminal onde ele está rodando."
+                    }
+                  },
+                  "configuracao_invalida": {
+                    "summary": "configuracao_invalida",
+                    "value": {
+                      "erro": "configuracao_invalida",
+                      "mensagem": "A configuração não combina com o que o portal retornou (alias ou período)."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`sem_contexto`: O portal pediu um contexto de matrícula que a sessão não tem.\n\n`erro_do_portal`: O portal retornou um erro dentro da resposta.\n\n`resposta_inesperada`: A resposta do portal não tem o formato documentado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "sem_contexto": {
+                    "summary": "sem_contexto",
+                    "value": {
+                      "erro": "sem_contexto",
+                      "mensagem": "O portal pediu um contexto de matrícula que a sessão não tem."
+                    }
+                  },
+                  "erro_do_portal": {
+                    "summary": "erro_do_portal",
+                    "value": {
+                      "erro": "erro_do_portal",
+                      "mensagem": "O portal retornou um erro dentro da resposta."
+                    }
+                  },
+                  "resposta_inesperada": {
+                    "summary": "resposta_inesperada",
+                    "value": {
+                      "erro": "resposta_inesperada",
+                      "mensagem": "A resposta do portal não tem o formato documentado."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "`portal_indisponivel`: Não foi possível falar com o portal: sem conexão, tempo esgotado ou erro 5xx.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "portal_indisponivel": {
+                    "summary": "portal_indisponivel",
+                    "value": {
+                      "erro": "portal_indisponivel",
+                      "mensagem": "Não foi possível falar com o portal: sem conexão, tempo esgotado ou erro 5xx."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-upstream": [
+          "TOTVSEducacional/Material/Institucional",
+          "TOTVSEducacional/Material"
+        ]
+      }
+    },
+    "/disciplinas/{idTurmaDisc}/materiais": {
+      "get": {
+        "operationId": "listarMateriaisDaDisciplina",
+        "tags": [
+          "Arquivos"
+        ],
+        "summary": "Materiais de uma disciplina",
+        "description": "Lista os materiais que os professores publicaram numa disciplina. Os mais recentes vêm primeiro.\n\n> [!WARNING]\n> **Formato ainda não visto**\n>\n> Na conta testada, nenhuma disciplina tinha materiais, então o formato desta resposta do portal não foi registrado. A API lê os campos que a página do portal mostra.\n\n> [!NOTE]\n> **Baixar um material**\n>\n> `/materiais/{idMaterial}/arquivo?idTurmaDisc={idTurmaDisc}` devolve o arquivo.\n\n> [!NOTE]\n> **De onde vêm os dados**\n>\n> O servidor local chama `TOTVSEducacional/DisciplinasAlunoPeriodoLetivo`, `TOTVSEducacional/MateriaisTurmaDisciplina` no portal. A resposta vai do portal para o seu computador e para mais nenhum lugar.",
+        "parameters": [
+          {
+            "name": "idTurmaDisc",
+            "in": "path",
+            "required": true,
+            "description": "ID da turma da disciplina, como em `/disciplinas`.",
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          },
+          {
+            "name": "periodo",
+            "in": "query",
+            "required": false,
+            "description": "Código do período, como em `/periodos` (ex.: `2026S1`). Padrão: o período da matrícula da sessão.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Materiais de uma disciplina",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "periodo": {
+                      "type": "string",
+                      "description": "Código do período respondido (ex.: `2026S2`)."
+                    },
+                    "idTurmaDisc": {
+                      "type": "integer",
+                      "description": "A disciplina pedida."
+                    },
+                    "materiais": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "idMaterial": {
+                            "type": "integer",
+                            "description": "ID do material (`IDMATERIALSEC`). Baixe em `/materiais/{idMaterial}/arquivo`."
+                          },
+                          "origem": {
+                            "type": "string",
+                            "enum": [
+                              "instituicao",
+                              "aluno",
+                              "disciplina"
+                            ],
+                            "description": "De onde vem: material da instituição, material só seu, ou material de uma disciplina."
+                          },
+                          "descricao": {
+                            "description": "Título do material, como o portal mostra.",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "tipo": {
+                            "type": "object",
+                            "properties": {
+                              "codigo": {
+                                "description": "`IDTIPOMATERIAL`.",
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "descricao": {
+                                "description": "O texto do portal (ex.: `Material P/ Aluno`, `Estágio`).",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "codigo",
+                              "descricao"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "arquivo": {
+                            "description": "Nome do arquivo.",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "tamanhoKb": {
+                            "description": "Tamanho em KB (`TAMANHO`).",
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "incluidoEm": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Dia em que foi publicado (`DATAINCLUSAO`)."
+                          },
+                          "data": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "A data que o portal mostra com o material (`DATA`), quando há."
+                          },
+                          "expiraEm": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Dia em que deixa de valer (`DATAEXPIRACAO`), ou `null`."
+                          }
+                        },
+                        "required": [
+                          "idMaterial",
+                          "origem",
+                          "descricao",
+                          "tipo",
+                          "arquivo",
+                          "tamanhoKb",
+                          "incluidoEm",
+                          "data",
+                          "expiraEm"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "periodo",
+                    "idTurmaDisc",
+                    "materiais"
+                  ],
+                  "additionalProperties": false
+                },
+                "example": {
+                  "periodo": "2026S2",
+                  "idTurmaDisc": 48213,
+                  "materiais": [
+                    {
+                      "idMaterial": 3311,
+                      "origem": "disciplina",
+                      "descricao": "Slides da aula 21",
+                      "tipo": {
+                        "codigo": 1,
+                        "descricao": "Material de aula"
+                      },
+                      "arquivo": "aula21.pdf",
+                      "tamanhoKb": 210,
+                      "incluidoEm": "2026-02-02",
+                      "data": null,
+                      "expiraEm": null
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`parametro_invalido`: Um parâmetro está faltando, sobrando ou com o tipo errado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "parametro_invalido": {
+                    "summary": "parametro_invalido",
+                    "value": {
+                      "erro": "parametro_invalido",
+                      "mensagem": "Um parâmetro está faltando, sobrando ou com o tipo errado."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`token_invalido`: O token local está ausente ou errado. Entre de novo pela documentação (/docs/) para receber um novo.\n\n`login_falhou`: O portal não completou o login. Confira o usuário e a senha.\n\n`sessao_expirada`: O portal recusou a sessão, e um novo login não resolveu.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "token_invalido": {
+                    "summary": "token_invalido",
+                    "value": {
+                      "erro": "token_invalido",
+                      "mensagem": "O token local está ausente ou errado. Entre de novo pela documentação (/docs/) para receber um novo."
+                    }
+                  },
+                  "login_falhou": {
+                    "summary": "login_falhou",
+                    "value": {
+                      "erro": "login_falhou",
+                      "mensagem": "O portal não completou o login. Confira o usuário e a senha."
+                    }
+                  },
+                  "sessao_expirada": {
+                    "summary": "sessao_expirada",
+                    "value": {
+                      "erro": "sessao_expirada",
+                      "mensagem": "O portal recusou a sessão, e um novo login não resolveu."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`portal_recusou`: O portal negou o acesso (HTTP 403). A API repassa a recusa e não tenta outro caminho.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "portal_recusou": {
+                    "summary": "portal_recusou",
+                    "value": {
+                      "erro": "portal_recusou",
+                      "mensagem": "O portal negou o acesso (HTTP 403). A API repassa a recusa e não tenta outro caminho."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`periodo_inexistente`: A conta não tem matrícula no período pedido. Os períodos estão em /periodos.\n\n`item_inexistente`: O ID pedido não está entre os que o portal lista para esta conta (por exemplo, uma disciplina de outro período).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "periodo_inexistente": {
+                    "summary": "periodo_inexistente",
+                    "value": {
+                      "erro": "periodo_inexistente",
+                      "mensagem": "A conta não tem matrícula no período pedido. Os períodos estão em /periodos."
+                    }
+                  },
+                  "item_inexistente": {
+                    "summary": "item_inexistente",
+                    "value": {
+                      "erro": "item_inexistente",
+                      "mensagem": "O ID pedido não está entre os que o portal lista para esta conta (por exemplo, uma disciplina de outro período)."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`erro_interno`: Erro no servidor local. Veja o terminal onde ele está rodando.\n\n`configuracao_invalida`: A configuração não combina com o que o portal retornou (alias ou período).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "erro_interno": {
+                    "summary": "erro_interno",
+                    "value": {
+                      "erro": "erro_interno",
+                      "mensagem": "Erro no servidor local. Veja o terminal onde ele está rodando."
+                    }
+                  },
+                  "configuracao_invalida": {
+                    "summary": "configuracao_invalida",
+                    "value": {
+                      "erro": "configuracao_invalida",
+                      "mensagem": "A configuração não combina com o que o portal retornou (alias ou período)."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`sem_contexto`: O portal pediu um contexto de matrícula que a sessão não tem.\n\n`erro_do_portal`: O portal retornou um erro dentro da resposta.\n\n`resposta_inesperada`: A resposta do portal não tem o formato documentado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "sem_contexto": {
+                    "summary": "sem_contexto",
+                    "value": {
+                      "erro": "sem_contexto",
+                      "mensagem": "O portal pediu um contexto de matrícula que a sessão não tem."
+                    }
+                  },
+                  "erro_do_portal": {
+                    "summary": "erro_do_portal",
+                    "value": {
+                      "erro": "erro_do_portal",
+                      "mensagem": "O portal retornou um erro dentro da resposta."
+                    }
+                  },
+                  "resposta_inesperada": {
+                    "summary": "resposta_inesperada",
+                    "value": {
+                      "erro": "resposta_inesperada",
+                      "mensagem": "A resposta do portal não tem o formato documentado."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "`portal_indisponivel`: Não foi possível falar com o portal: sem conexão, tempo esgotado ou erro 5xx.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "portal_indisponivel": {
+                    "summary": "portal_indisponivel",
+                    "value": {
+                      "erro": "portal_indisponivel",
+                      "mensagem": "Não foi possível falar com o portal: sem conexão, tempo esgotado ou erro 5xx."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-upstream": [
+          "TOTVSEducacional/DisciplinasAlunoPeriodoLetivo",
+          "TOTVSEducacional/MateriaisTurmaDisciplina"
+        ]
+      }
+    },
+    "/materiais/{idMaterial}/arquivo": {
+      "get": {
+        "operationId": "baixarMaterial",
+        "tags": [
+          "Arquivos"
+        ],
+        "summary": "Baixar um material",
+        "description": "Devolve o arquivo de um material, como o botão de download da página \"Arquivos\". Com `idTurmaDisc`, procura também entre os materiais daquela disciplina.\n\n> [!NOTE]\n> **Só materiais das listas**\n>\n> A API procura o material em `/materiais` (e na disciplina, com `idTurmaDisc`) para saber o caminho do arquivo, como a página faz. Um ID que não está nas listas responde 404 `item_inexistente`, sem chamar o download.\n\n> [!NOTE]\n> **Tipo do arquivo**\n>\n> O portal manda todo arquivo como `application/octet-stream`. A API usa o tipo da extensão do nome (`.pdf`, `.docx`…) para que o navegador saiba abri-lo. O arquivo sempre vem como download.\n\n> [!NOTE]\n> **De onde vêm os dados**\n>\n> O servidor local chama `TOTVSEducacional/Material/Institucional`, `TOTVSEducacional/Material`, `TOTVSEducacional/MateriaisTurmaDisciplina`, `TOTVSEducacional/Material/Download` no portal. A resposta vai do portal para o seu computador e para mais nenhum lugar.",
+        "parameters": [
+          {
+            "name": "idMaterial",
+            "in": "path",
+            "required": true,
+            "description": "ID do material, como em `/materiais`.",
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          },
+          {
+            "name": "idTurmaDisc",
+            "in": "query",
+            "required": false,
+            "description": "A disciplina do material, para um material de disciplina.",
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          },
+          {
+            "name": "periodo",
+            "in": "query",
+            "required": false,
+            "description": "Código do período, como em `/periodos` (ex.: `2026S1`). Padrão: o período da matrícula da sessão.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "O arquivo, com o nome dele em `Content-Disposition`.",
+            "headers": {
+              "Content-Disposition": {
+                "description": "Sempre `attachment`, com o nome do arquivo.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "contentMediaType": "application/octet-stream"
+                }
+              },
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "contentMediaType": "application/pdf"
+                }
+              },
+              "application/msword": {
+                "schema": {
+                  "type": "string",
+                  "contentMediaType": "application/msword"
+                }
+              },
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {
+                "schema": {
+                  "type": "string",
+                  "contentMediaType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                }
+              },
+              "application/vnd.ms-excel": {
+                "schema": {
+                  "type": "string",
+                  "contentMediaType": "application/vnd.ms-excel"
+                }
+              },
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "contentMediaType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                }
+              },
+              "application/vnd.ms-powerpoint": {
+                "schema": {
+                  "type": "string",
+                  "contentMediaType": "application/vnd.ms-powerpoint"
+                }
+              },
+              "application/vnd.openxmlformats-officedocument.presentationml.presentation": {
+                "schema": {
+                  "type": "string",
+                  "contentMediaType": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                }
+              },
+              "application/vnd.oasis.opendocument.text": {
+                "schema": {
+                  "type": "string",
+                  "contentMediaType": "application/vnd.oasis.opendocument.text"
+                }
+              },
+              "application/vnd.oasis.opendocument.spreadsheet": {
+                "schema": {
+                  "type": "string",
+                  "contentMediaType": "application/vnd.oasis.opendocument.spreadsheet"
+                }
+              },
+              "application/vnd.oasis.opendocument.presentation": {
+                "schema": {
+                  "type": "string",
+                  "contentMediaType": "application/vnd.oasis.opendocument.presentation"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "contentMediaType": "text/plain"
+                }
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string",
+                  "contentMediaType": "text/csv"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "contentMediaType": "image/png"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "contentMediaType": "image/jpeg"
+                }
+              },
+              "image/gif": {
+                "schema": {
+                  "type": "string",
+                  "contentMediaType": "image/gif"
+                }
+              },
+              "application/zip": {
+                "schema": {
+                  "type": "string",
+                  "contentMediaType": "application/zip"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`parametro_invalido`: Um parâmetro está faltando, sobrando ou com o tipo errado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "parametro_invalido": {
+                    "summary": "parametro_invalido",
+                    "value": {
+                      "erro": "parametro_invalido",
+                      "mensagem": "Um parâmetro está faltando, sobrando ou com o tipo errado."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`token_invalido`: O token local está ausente ou errado. Entre de novo pela documentação (/docs/) para receber um novo.\n\n`login_falhou`: O portal não completou o login. Confira o usuário e a senha.\n\n`sessao_expirada`: O portal recusou a sessão, e um novo login não resolveu.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "token_invalido": {
+                    "summary": "token_invalido",
+                    "value": {
+                      "erro": "token_invalido",
+                      "mensagem": "O token local está ausente ou errado. Entre de novo pela documentação (/docs/) para receber um novo."
+                    }
+                  },
+                  "login_falhou": {
+                    "summary": "login_falhou",
+                    "value": {
+                      "erro": "login_falhou",
+                      "mensagem": "O portal não completou o login. Confira o usuário e a senha."
+                    }
+                  },
+                  "sessao_expirada": {
+                    "summary": "sessao_expirada",
+                    "value": {
+                      "erro": "sessao_expirada",
+                      "mensagem": "O portal recusou a sessão, e um novo login não resolveu."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`portal_recusou`: O portal negou o acesso (HTTP 403). A API repassa a recusa e não tenta outro caminho.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "portal_recusou": {
+                    "summary": "portal_recusou",
+                    "value": {
+                      "erro": "portal_recusou",
+                      "mensagem": "O portal negou o acesso (HTTP 403). A API repassa a recusa e não tenta outro caminho."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`periodo_inexistente`: A conta não tem matrícula no período pedido. Os períodos estão em /periodos.\n\n`item_inexistente`: O ID pedido não está entre os que o portal lista para esta conta (por exemplo, uma disciplina de outro período).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "periodo_inexistente": {
+                    "summary": "periodo_inexistente",
+                    "value": {
+                      "erro": "periodo_inexistente",
+                      "mensagem": "A conta não tem matrícula no período pedido. Os períodos estão em /periodos."
+                    }
+                  },
+                  "item_inexistente": {
+                    "summary": "item_inexistente",
+                    "value": {
+                      "erro": "item_inexistente",
+                      "mensagem": "O ID pedido não está entre os que o portal lista para esta conta (por exemplo, uma disciplina de outro período)."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`erro_interno`: Erro no servidor local. Veja o terminal onde ele está rodando.\n\n`configuracao_invalida`: A configuração não combina com o que o portal retornou (alias ou período).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "erro_interno": {
+                    "summary": "erro_interno",
+                    "value": {
+                      "erro": "erro_interno",
+                      "mensagem": "Erro no servidor local. Veja o terminal onde ele está rodando."
+                    }
+                  },
+                  "configuracao_invalida": {
+                    "summary": "configuracao_invalida",
+                    "value": {
+                      "erro": "configuracao_invalida",
+                      "mensagem": "A configuração não combina com o que o portal retornou (alias ou período)."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`sem_contexto`: O portal pediu um contexto de matrícula que a sessão não tem.\n\n`erro_do_portal`: O portal retornou um erro dentro da resposta.\n\n`resposta_inesperada`: A resposta do portal não tem o formato documentado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "sem_contexto": {
+                    "summary": "sem_contexto",
+                    "value": {
+                      "erro": "sem_contexto",
+                      "mensagem": "O portal pediu um contexto de matrícula que a sessão não tem."
+                    }
+                  },
+                  "erro_do_portal": {
+                    "summary": "erro_do_portal",
+                    "value": {
+                      "erro": "erro_do_portal",
+                      "mensagem": "O portal retornou um erro dentro da resposta."
+                    }
+                  },
+                  "resposta_inesperada": {
+                    "summary": "resposta_inesperada",
+                    "value": {
+                      "erro": "resposta_inesperada",
+                      "mensagem": "A resposta do portal não tem o formato documentado."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "`portal_indisponivel`: Não foi possível falar com o portal: sem conexão, tempo esgotado ou erro 5xx.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "portal_indisponivel": {
+                    "summary": "portal_indisponivel",
+                    "value": {
+                      "erro": "portal_indisponivel",
+                      "mensagem": "Não foi possível falar com o portal: sem conexão, tempo esgotado ou erro 5xx."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-upstream": [
+          "TOTVSEducacional/Material/Institucional",
+          "TOTVSEducacional/Material",
+          "TOTVSEducacional/MateriaisTurmaDisciplina",
+          "TOTVSEducacional/Material/Download"
         ]
       }
     }

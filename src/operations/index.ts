@@ -6,6 +6,7 @@ import { listarDisciplinas } from './disciplinas.js';
 import { obterFaltas } from './faltas.js';
 import { listarEtapasDaDisciplina } from './etapas.js';
 import { listarFaltasPorAula } from './faltas-aulas.js';
+import { baixarMaterial, listarMateriais, listarMateriaisDaDisciplina } from './materiais.js';
 import { obterGradeCurricular } from './grade-curricular.js';
 import { obterHorario } from './horario.js';
 import { obterNotas } from './notas.js';
@@ -39,6 +40,9 @@ export const operations: readonly Operation[] = [
   listarAulasDaDisciplina,
   obterAula,
   listarEventosDoCalendario,
+  listarMateriais,
+  listarMateriaisDaDisciplina,
+  baixarMaterial,
 ];
 
 export function findOperation(id: string): Operation | undefined {

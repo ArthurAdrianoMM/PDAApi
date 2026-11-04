@@ -1,7 +1,7 @@
 /** The docs page's logic (web/src/lib), checked against the real generated spec. */
 import { describe, expect, it } from 'vitest';
 import { generateOpenApi } from '../src/openapi/generate.js';
-import { defineFileOperation, isFileOperation, operations } from '../src/operations/index.js';
+import { TAGS, defineFileOperation, isFileOperation, operations } from '../src/operations/index.js';
 import { listarPeriodos } from '../src/operations/periodos.js';
 import { tokenizeJson } from '../web/src/lib/json.js';
 import { parseBlocks, parseInline } from '../web/src/lib/markdown.js';
@@ -21,7 +21,8 @@ describe('spec model', () => {
       if (isFileOperation(op)) expect(byId(op.id)).toMatchObject({ example: undefined, file: { mediaTypes: op.file.mediaTypes } });
       else expect(byId(op.id)).toMatchObject({ example: op.example, file: null });
     }
-    expect(model.tags.map((t) => t.name)).toEqual(['Período', 'Desempenho', 'Rotina']);
+    const usedTags = TAGS.filter((tag) => operations.some((op) => op.tag === tag.name)).map((tag) => tag.name);
+    expect(model.tags.map((t) => t.name)).toEqual(usedTags);
   });
 
   it('reads parameters, errors, upstream calls and the portal address', () => {

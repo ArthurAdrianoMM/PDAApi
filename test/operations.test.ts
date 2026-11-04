@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { TAGS, isFileOperation, operations, runOperation, type JsonOperation } from '../src/operations/index.js';
+import { TAGS, isFileOperation, operations, runFileOperation, runOperation, type JsonOperation } from '../src/operations/index.js';
 import { listarAulas } from '../src/operations/aulas.js';
 import { listarAulasDaDisciplina, obterAula } from '../src/operations/aulas-disciplina.js';
 import { listarEventosDoCalendario } from '../src/operations/calendario.js';
@@ -9,11 +9,13 @@ import { obterNotas } from '../src/operations/notas.js';
 import { obterFaltas } from '../src/operations/faltas.js';
 import { listarEtapasDaDisciplina } from '../src/operations/etapas.js';
 import { listarFaltasPorAula } from '../src/operations/faltas-aulas.js';
+import { baixarMaterial, listarMateriais, listarMateriaisDaDisciplina } from '../src/operations/materiais.js';
 import { obterGradeCurricular } from '../src/operations/grade-curricular.js';
 import { listarPeriodos } from '../src/operations/periodos.js';
 import { AULAS_DISCIPLINA, PLANO_AULA } from './fixtures/aulas-disciplina.js';
 import { CALENDARIO } from './fixtures/calendario.js';
 import { ETAPAS_FALTA, ETAPAS_NOTA } from './fixtures/etapas.js';
+import { MATERIAIS_DISCIPLINA, MATERIAIS_INSTITUCIONAIS, PDF, downloadResponse } from './fixtures/materiais.js';
 import { GRADE_CURRICULAR } from './fixtures/grade-curricular.js';
 import { CONTEXT_COOKIE, academicRoute, contextRoute, createTestSession, type DataRoute } from './support/fake-portal.js';
 
@@ -909,5 +911,66 @@ describe('listarEtapasDaDisciplina', () => {
     expect(result.etapas.map((e) => e.tipo)).toEqual(['falta']);
     expect(portal.paths().filter((p) => p.endsWith('EtapasTurmaDisc'))).toHaveLength(1);
     await expect(runOperation(listarEtapasDaDisciplina, session, { idTurmaDisc: 1 })).rejects.toMatchObject({ code: 'item_inexistente' });
+  });
+});
+
+describe('materials', () => {
+  const sessionFor = () =>
+    sessionWith({
+      'TOTVSEducacional/Material/Institucional': academicRoute(CONTEXT_ID, MATERIAIS_INSTITUCIONAIS),
+      'TOTVSEducacional/Material': academicRoute(CONTEXT_ID, []),
+      'TOTVSEducacional/DisciplinasAlunoPeriodoLetivo': academicRoute(CONTEXT_ID, [
+        { IDTURMADISC: 48213, CODDISC: 'PW2', NOME: 'Programação Web II', CODTURMA: 'DS-2026-A', CODSUBTURMA: null, IDPERLET: 1042, CODSTATUS: 20, DESCRICAO: 'Matriculado' },
+      ]),
+      'TOTVSEducacional/MateriaisTurmaDisciplina': academicRoute(CONTEXT_ID, MATERIAIS_DISCIPLINA),
+      'TOTVSEducacional/Material/Download': () => downloadResponse(),
+    });
+  const download = (portal: { requests: { url: URL }[] }) => portal.requests.findLast((r) => r.url.pathname.endsWith('Material/Download'));
+
+  it('lists the school materials and the student own, newest first', async () => {
+    const { session } = sessionFor();
+    const { materiais } = await runOperation(listarMateriais, session, {});
+    expect(materiais.map((m) => m.idMaterial)).toEqual([3201, 3150]);
+    expect(materiais[1]).toEqual({
+      idMaterial: 3150,
+      origem: 'instituicao',
+      descricao: 'Calendário acadêmico 2026',
+      tipo: { codigo: 2, descricao: 'Material P/ Aluno' },
+      arquivo: 'Calendário acadêmico 2026 (versão 2).pdf',
+      tamanhoKb: 45,
+      incluidoEm: '2026-02-02',
+      data: null,
+      expiraEm: '2026-12-31',
+    });
+  });
+
+  it("lists a class's materials, read with the page's fields", async () => {
+    const { session } = sessionFor();
+    const result = await runOperation(listarMateriaisDaDisciplina, session, { idTurmaDisc: 48213 });
+    expect(result.materiais).toEqual([
+      expect.objectContaining({ idMaterial: 3311, origem: 'disciplina', tipo: { codigo: null, descricao: 'Material de aula' }, data: '2026-11-03', expiraEm: null }),
+    ]);
+    await expect(runOperation(listarMateriaisDaDisciplina, session, { idTurmaDisc: 1 })).rejects.toMatchObject({ code: 'item_inexistente' });
+  });
+
+  it('downloads a listed material with its path, named and typed by its file name', async () => {
+    const { portal, session } = sessionFor();
+    const file = await runFileOperation(baixarMaterial, session, { idMaterial: 3150 });
+    expect(file).toEqual({ nome: 'Calendário acadêmico 2026 (versão 2).pdf', tipo: 'application/pdf', conteudo: PDF });
+    expect(Object.fromEntries(download(portal)!.url.searchParams)).toEqual({
+      idMaterialSec: '3150',
+      pathArquivo: 'Calendário acadêmico 2026 (versão 2).pdf',
+    });
+    await expect(runFileOperation(baixarMaterial, session, { idMaterial: 3201 })).resolves.toMatchObject({
+      tipo: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    });
+  });
+
+  it("finds a class's material only with idTurmaDisc, and never downloads an ID the lists don't have", async () => {
+    const { portal, session } = sessionFor();
+    await expect(runFileOperation(baixarMaterial, session, { idMaterial: 3311 })).rejects.toMatchObject({ code: 'item_inexistente' });
+    await expect(runFileOperation(baixarMaterial, session, { idMaterial: 3311, idTurmaDisc: 48213 })).resolves.toMatchObject({ nome: 'aula21.pdf' });
+    await expect(runFileOperation(baixarMaterial, session, { idMaterial: 9999, idTurmaDisc: 48213 })).rejects.toMatchObject({ code: 'item_inexistente' });
+    expect(portal.paths().filter((p) => p.endsWith('Material/Download'))).toHaveLength(1);
   });
 });

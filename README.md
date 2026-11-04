@@ -7,7 +7,7 @@ Class project, not official, not affiliated with SENAI or FIEB. Scope and limits
 ## Status
 
 - [x] Core client: login, context cookie, re-login on expiry, rate limit (`src/core`)
-- [x] Operations: `/periodos`, `/disciplinas`, `/notas`, `/faltas`, `/faltas/aulas`, `/horario`, `/aulas`, `/disciplinas/{idTurmaDisc}/aulas`, `/disciplinas/{idTurmaDisc}/aulas/{idPlanoAula}`, `/disciplinas/{idTurmaDisc}/etapas`, `/calendario`, `/grade-curricular` (`src/operations`)
+- [x] Operations: `/periodos`, `/disciplinas`, `/notas`, `/faltas`, `/faltas/aulas`, `/horario`, `/aulas`, `/disciplinas/{idTurmaDisc}/aulas`, `/disciplinas/{idTurmaDisc}/aulas/{idPlanoAula}`, `/disciplinas/{idTurmaDisc}/etapas`, `/calendario`, `/grade-curricular`, `/materiais`, `/disciplinas/{idTurmaDisc}/materiais`, `/materiais/{idMaterial}/arquivo` (`src/operations`)
 - [x] OpenAPI 3.1 document generated from the operations ([openapi.json](openapi.json))
 - [x] Local server (`portal-aluno serve`)
 - [x] Docs page with "testar", built from `openapi.json` (`web/`)
@@ -88,6 +88,8 @@ npm run try -- aulas '{"de":"2026-11-02","ate":"2026-11-06"}'
 npm run try -- grade-curricular '{"situacao":"pendente"}'
 npm run try -- listarAulasDaDisciplina '{"idTurmaDisc":48213}'
 npm run try -- calendario '{"de":"2026-11-01","ate":"2026-11-30"}'
+npm run try -- materiais
+npm run try -- baixarMaterial '{"idMaterial":3150}'   # prints the file's name, type and size, not the file
 ```
 
 The output is your own data, so don't paste it anywhere public.
