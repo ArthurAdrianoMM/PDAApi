@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { PortalSession } from '../core/index.js';
 import { codeLike, integerLike, optionalCode } from '../core/schemas.js';
 import { defineOperation } from './define.js';
 import { periodoInput, periodoOutput } from './periodo.js';
@@ -20,6 +21,13 @@ const upstreamSchema = z.array(
     DESCRICAO: z.string().nullish(),
   }),
 );
+
+export type DisciplinaRow = z.output<typeof upstreamSchema>[number];
+
+/** The classes of one enrollment, as `DisciplinasAlunoPeriodoLetivo` lists them. */
+export function lerDisciplinas(session: PortalSession, { apenasEmCurso = false, periodo }: { apenasEmCurso?: boolean; periodo?: string | undefined }) {
+  return session.getData('TOTVSEducacional/DisciplinasAlunoPeriodoLetivo', { mostraApenasDiscEmCurso: apenasEmCurso }, upstreamSchema, { periodo });
+}
 
 const disciplinaSchema = z.object({
   idTurmaDisc: z.number().int().describe('ID da turma da disciplina. É a chave para aulas, faltas e etapas.'),
@@ -81,12 +89,7 @@ export const listarDisciplinas = defineOperation({
   },
   async handler(session, { apenasEmCurso, periodo }) {
     const context = await session.contextFor(periodo);
-    const rows = await session.getData(
-      'TOTVSEducacional/DisciplinasAlunoPeriodoLetivo',
-      { mostraApenasDiscEmCurso: apenasEmCurso },
-      upstreamSchema,
-      { periodo },
-    );
+    const rows = await lerDisciplinas(session, { apenasEmCurso, periodo });
     return {
       periodo: context.codPerLet,
       disciplinas: rows.map((row) => ({

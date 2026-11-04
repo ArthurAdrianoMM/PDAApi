@@ -349,7 +349,8 @@ describe('endpoints end to end', () => {
     const body = (await res.json()) as { aulas: Record<string, unknown>[] };
     expect(body).toMatchObject({ periodo: '2026S2', de: '2026-11-03', ate: '2026-11-06' });
     expect(body.aulas).toEqual([expect.objectContaining({ idPlanoAula: 7310452, dia: 'terca', tipo: { codigo: 'T', descricao: 'Aula teórica' } })]);
-    expect(portal.requests.at(-1)!.url.searchParams.get('idContextoAluno')).toBe(CONTEXT_ID);
+    const call = portal.requests.find((r) => r.url.pathname.endsWith('v1/planoaulas/aulas'))!;
+    expect(call.url.searchParams.get('idContextoAluno')).toBe(CONTEXT_ID);
 
     const tooLong = await authed('/aulas?de=2026-01-01&ate=2026-03-01');
     expect(tooLong.status).toBe(400);

@@ -2964,7 +2964,7 @@
           "Rotina"
         ],
         "summary": "Aulas por dia",
-        "description": "Lista as aulas do plano de aulas num dia ou numa janela de dias, de todas as disciplinas: horário, conteúdo previsto e efetivo, lição de casa e local. Sem datas, traz as aulas de hoje, como a página \"Plano de aula\" do portal. Os itens vêm em ordem de data e horário.\n\n> [!NOTE]\n> **Datas**\n>\n> `de` e `ate` são dias inteiros. Sem nenhum dos dois, a janela é hoje; com só um, é aquele dia. Uma chamada cobre até 31 dias. `idTurmaDisc` filtra aqui, depois da resposta, como a página do portal faz.\n\n> [!NOTE]\n> **Feriados e dias sem aula**\n>\n> Um dia sem aula no plano, como um feriado, simplesmente não aparece na lista.\n\n> [!NOTE]\n> **Uma aula em detalhe**\n>\n> `idPlanoAula` e `idTurmaDisc` abrem a aula em `/disciplinas/{idTurmaDisc}/aulas/{idPlanoAula}`.\n\n> [!NOTE]\n> **De onde vêm os dados**\n>\n> O servidor local chama `TOTVSEducacional/v1/planoaulas/aulas` no portal. A resposta vai do portal para o seu computador e para mais nenhum lugar.",
+        "description": "Lista as aulas do plano de aulas num dia ou numa janela de dias, de todas as disciplinas: horário, conteúdo previsto e efetivo, lição de casa e local. Sem datas, traz as aulas de hoje, como a página \"Plano de aula\" do portal. Os itens vêm em ordem de data e horário.\n\n> [!NOTE]\n> **Datas**\n>\n> `de` e `ate` são dias inteiros. Sem nenhum dos dois, a janela é hoje; com só um, é aquele dia. Uma chamada cobre até 31 dias. `idTurmaDisc` filtra aqui, depois da resposta, como a página do portal faz.\n\n> [!NOTE]\n> **Feriados e dias sem aula**\n>\n> Um dia sem aula no plano, como um feriado, simplesmente não aparece na lista.\n\n> [!NOTE]\n> **Só a sua subturma**\n>\n> Numa disciplina com subturmas, o portal lista as aulas de todas elas, sem dizer de qual é cada uma. A API descobre a subturma de cada aula pelo horário e deixa só as da sua, a mesma de `subturma` em `/disciplinas`. Com `incluirOutrasSubturmas=true`, vêm todas, como na página do portal, cada uma com a sua `subturma`.\n\n> [!NOTE]\n> **Uma aula em detalhe**\n>\n> `idPlanoAula` e `idTurmaDisc` abrem a aula em `/disciplinas/{idTurmaDisc}/aulas/{idPlanoAula}`.\n\n> [!NOTE]\n> **De onde vêm os dados**\n>\n> O servidor local chama `TOTVSEducacional/v1/planoaulas/aulas`, `TOTVSEducacional/DisciplinasAlunoPeriodoLetivo`, `TOTVSEducacional/MatriculaDisciplinaPorHabilitacaoFilialTurmaDisc` no portal. A resposta vai do portal para o seu computador e para mais nenhum lugar.",
         "parameters": [
           {
             "name": "de",
@@ -2996,6 +2996,16 @@
             "schema": {
               "type": "integer",
               "exclusiveMinimum": 0
+            }
+          },
+          {
+            "name": "incluirOutrasSubturmas",
+            "in": "query",
+            "required": false,
+            "description": "Quando `true`, inclui as aulas das outras subturmas das suas disciplinas, como a página do portal mostra.",
+            "schema": {
+              "default": false,
+              "type": "boolean"
             }
           },
           {
@@ -3499,7 +3509,9 @@
           }
         },
         "x-upstream": [
-          "TOTVSEducacional/v1/planoaulas/aulas"
+          "TOTVSEducacional/v1/planoaulas/aulas",
+          "TOTVSEducacional/DisciplinasAlunoPeriodoLetivo",
+          "TOTVSEducacional/MatriculaDisciplinaPorHabilitacaoFilialTurmaDisc"
         ]
       }
     }

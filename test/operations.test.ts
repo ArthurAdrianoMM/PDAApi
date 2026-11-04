@@ -498,11 +498,30 @@ describe('listarAulas', () => {
   const rows = [
     row({ IDPLANOAULA: 7310460, DATA: '2026-11-04T00:00:00', DIASEMANA: 4, HORAINICIAL: '20:20', HORAFINAL: '21:10', TIPOAULA: null }),
     row(),
-    row({ IDPLANOAULA: 7311800, IDTURMADISC: 48230, CODDISC: 'BD1', HORAINICIAL: '17:30', HORAFINAL: '18:20', TIPOAULA: 'Z', CONFIRMADO: 'S', CODSUBTURMA: 'SUBTURMA C' }),
+    row({ IDPLANOAULA: 7311800, IDTURMADISC: 48230, IDHORARIOTURMA: 90140, CODDISC: 'BD1', HORAINICIAL: '17:30', HORAFINAL: '18:20', TIPOAULA: 'Z', CONFIRMADO: 'S' }),
+    // Another subclass's lesson of the same class: the portal lists it too, with a blank CODSUBTURMA.
+    row({ IDPLANOAULA: 7311900, IDTURMADISC: 48230, IDHORARIOTURMA: 90150, CODDISC: 'BD1', HORAINICIAL: '20:20', HORAFINAL: '21:10' }),
   ];
   const arquivos = [{ IDPLANOAULA: 7310452, IDMATERIALSEC: 991, ARQUIVO: 'slides.pdf', TAMANHO: 120, PATHARQUIVO: 'x' }];
+  /** The student is in SUBTURMA C of BD1 (48230), whose slots 90140 and 90150 belong to C and A. */
+  const disciplinas = [
+    { IDTURMADISC: 48213, CODDISC: 'PW2', NOME: 'Programação Web II', CODTURMA: 'DS-2026-A', CODSUBTURMA: null, IDPERLET: 1042, CODSTATUS: 20, DESCRICAO: 'Matriculado' },
+    { IDTURMADISC: 48230, CODDISC: 'BD1', NOME: 'Banco de Dados I', CODTURMA: 'DS-2026-A', CODSUBTURMA: 'SUBTURMA C', IDPERLET: 1042, CODSTATUS: 20, DESCRICAO: 'Matriculado' },
+  ];
+  const infoBD1 = {
+    DisciplinaInfo: [{ IDTURMADISC: 48230, CODSUBTURMA: 'SUBTURMA C' }],
+    HorariosTurmaDiscInfo: [
+      { IDHORARIOTURMA: 90140, CODSUBTURMA: 'SUBTURMA C', DIASEMANA: 3 },
+      { IDHORARIOTURMA: 90150, CODSUBTURMA: 'SUBTURMA A', DIASEMANA: 3 },
+    ],
+    ProfessorTurmaDiscInfo: [],
+  };
   const sessionFor = (data: unknown = { SPlanoAula: rows, SPLANOAULAARQUIVO: arquivos }) =>
-    sessionWith({ 'TOTVSEducacional/v1/planoaulas/aulas': academicRoute(CONTEXT_ID, data) });
+    sessionWith({
+      'TOTVSEducacional/v1/planoaulas/aulas': academicRoute(CONTEXT_ID, data),
+      'TOTVSEducacional/DisciplinasAlunoPeriodoLetivo': academicRoute(CONTEXT_ID, disciplinas),
+      'TOTVSEducacional/MatriculaDisciplinaPorHabilitacaoFilialTurmaDisc': academicRoute(CONTEXT_ID, infoBD1),
+    });
   const sentQuery = (portal: { requests: { url: URL }[] }) =>
     Object.fromEntries(portal.requests.findLast((r) => r.url.pathname.endsWith('v1/planoaulas/aulas'))!.url.searchParams);
 
@@ -541,6 +560,7 @@ describe('listarAulas', () => {
       arquivos: [{ idMaterial: 991, nome: 'slides.pdf', tamanhoKb: 120 }],
     });
     expect(result.aulas[0]).toMatchObject({ tipo: { codigo: 'Z', descricao: null }, confirmada: true, subturma: 'SUBTURMA C', arquivos: [] });
+    expect(result.aulas.map((a) => a.idPlanoAula)).not.toContain(7311900);
     expect(result.aulas[2]).toMatchObject({ tipo: null, dia: 'quarta' });
   });
 
@@ -561,6 +581,27 @@ describe('listarAulas', () => {
     await expect(runOperation(listarAulas, session, {})).resolves.toMatchObject({ de: '2026-11-04', ate: '2026-11-04', aulas: [] });
     expect(sentQuery(portal).dtInicial).toBe(sentQuery(portal).dtFinal);
     await expect(runOperation(listarAulas, session, { ate: '2026-11-10' })).resolves.toMatchObject({ de: '2026-11-10', ate: '2026-11-10' });
+  });
+
+  it("keeps only the student's subclass, labelling each lesson with its own", async () => {
+    const { portal, session } = sessionFor();
+    const own = await runOperation(listarAulas, session, { de: '2026-11-03', idTurmaDisc: 48230 });
+    expect(own.aulas.map((a) => [a.idPlanoAula, a.subturma])).toEqual([[7311800, 'SUBTURMA C']]);
+    expect(portal.requests.findLast((r) => r.url.pathname.endsWith('MatriculaDisciplinaPorHabilitacaoFilialTurmaDisc'))!.url.searchParams.get('idTurmaDisc')).toBe('48230');
+
+    const all = await runOperation(listarAulas, session, { de: '2026-11-03', idTurmaDisc: 48230, incluirOutrasSubturmas: true });
+    expect(all.aulas.map((a) => [a.idPlanoAula, a.subturma])).toEqual([
+      [7311800, 'SUBTURMA C'],
+      [7311900, 'SUBTURMA A'],
+    ]);
+  });
+
+  it('asks for the subclass slots only of classes where the student has a subclass', async () => {
+    const { portal, session } = sessionFor();
+    await runOperation(listarAulas, session, { de: '2026-11-03', idTurmaDisc: 48213 });
+    expect(portal.paths().filter((p) => p.endsWith('MatriculaDisciplinaPorHabilitacaoFilialTurmaDisc'))).toEqual([]);
+    await runOperation(listarAulas, session, { de: '2026-11-03' });
+    expect(portal.paths().filter((p) => p.endsWith('MatriculaDisciplinaPorHabilitacaoFilialTurmaDisc'))).toHaveLength(1);
   });
 
   it('filters by idTurmaDisc here, and takes a missing file list as none', async () => {
