@@ -69,7 +69,7 @@ npm run build       # docs page to dist/web, server to dist/
 Work on the docs page without logging in to the real portal:
 
 ```sh
-npm run dev:fake    # the real server against the fake portal (made-up data), token "dev"
+npm run dev:fake    # the real server against the fake portal (made-up data), token "dev"; PORT=4399 npm run dev:fake for another port
 npm run dev:web     # in another terminal: the page with hot reload, at http://localhost:5173/docs/#token=dev
                     # the login screen accepts the fake account: aluno.teste / s3nha&com=símbolos
 ```

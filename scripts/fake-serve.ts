@@ -10,7 +10,7 @@ import { createApp } from '../src/http/app.js';
 import { GRADE_CURRICULAR } from '../test/fixtures/grade-curricular.js';
 import { CONTEXTS, ORIGIN, PASSWORD, USER, contextRoute, createFakePortal, fakeSession } from '../test/support/fake-portal.js';
 
-const PORT = 4321;
+const PORT = Number(process.env.PORT ?? 4321);
 const TOKEN = 'dev';
 
 /** An academic route that answers the same for every enrollment, so `periodo` works in the docs. */
