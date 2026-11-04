@@ -84,6 +84,13 @@ npm run try -- horario '{"incluirEncerrados":true}'
 
 The output is your own data, so don't paste it anywhere public.
 
+Map a portal endpoint before building on it. The probe prints only field names, types, string formats and counts, never values. `--values` lists the distinct values of the fields you name, for codes and enums only:
+
+```sh
+npm run probe -- TOTVSEducacional/Periodos
+npm run probe -- TOTVSEducacional/Aluno/CalendarioAluno --values EVENTTYPE,LABEL
+```
+
 ## Layout
 
 ```
@@ -103,7 +110,7 @@ src/
 web/             the docs page (React + Vite). Reads /openapi.json; knows nothing else about the API
   src/lib/       pure logic: spec model, Markdown subset, fields, samples, search (tested in test/web.test.ts)
   src/components/
-scripts/         dev runner (try.ts), openapi.json writer, fake-portal server (fake-serve.ts)
+scripts/         dev runner (try.ts), shape probe (probe.ts), openapi.json writer, fake-portal server (fake-serve.ts)
 test/            Vitest, with an in-memory fake portal (test/support)
 ```
 
