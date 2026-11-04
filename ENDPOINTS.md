@@ -28,6 +28,7 @@ Credentials, cookies, tokens and personal values are not written in this file.
 - Academic endpoints also need the **context cookie** `EduContextoAlunoResponsavelAPI`, which the client must set itself (section 2.4).
 - Several list endpoints are called with the active enrollment context; the frontend sends no extra header beyond cookies (`accept: application/json, text/plain, */*`).
 - Responses use `cache-control: no-cache`.
+- **Incomplete TLS chain (seen 2026-11-03).** The certificate `*.fieb.org.br` is issued by *Sectigo Public Server Authentication CA DV R36*, but the server sends other intermediates (a code-signing root and the OV CA) instead of that one. Browsers and curl on macOS fetch it from the certificate's AIA URL; Node does not, and fails with `UNABLE_TO_VERIFY_LEAF_SIGNATURE`. The client adds that public intermediate to Node's CAs (`src/core/tls.ts`), with verification still on.
 
 ---
 

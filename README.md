@@ -16,7 +16,7 @@ Class project, not official, not affiliated with SENAI or FIEB. Scope and limits
 
 ## Requirements
 
-Node.js 22 or newer.
+Node.js 22.19 or newer.
 
 ## Use
 
@@ -93,6 +93,7 @@ src/
     context.ts     enrollment context and the context cookie
     session.ts     PortalSession: in-memory session, re-login, getData()
     http.ts        fetch + cookie jar + throttle, no automatic redirects
+    tls.ts         the intermediate certificate the portal leaves out of its chain
     response.ts    status handling, envelope, schema validation
     errors.ts      PortalError and its codes
   operations/    one file per endpoint of this API: docs, schemas, handler

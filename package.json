@@ -11,7 +11,7 @@
     "dist"
   ],
   "engines": {
-    "node": ">=22"
+    "node": ">=22.19"
   },
   "scripts": {
     "build": "npm run build:web && tsc -p tsconfig.build.json",

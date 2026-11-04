@@ -2,6 +2,7 @@ import { Cookie, CookieJar } from 'tough-cookie';
 import type { PortalConfig } from './config.js';
 import { PortalError } from './errors.js';
 import { createThrottle } from './throttle.js';
+import './tls.js';
 
 export type FetchFn = typeof fetch;
 
