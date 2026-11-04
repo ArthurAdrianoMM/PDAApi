@@ -68,7 +68,7 @@ describe('login', () => {
   it('picks the enrollment with the latest start date', async () => {
     const { session } = setup();
     const { context } = await session.login();
-    expect(context).toEqual({ codPerLet: '2026S2', idPerLet: 1042, curso: 'Curso Exemplo' });
+    expect(context).toEqual({ codPerLet: '2026S2', idPerLet: 1042, curso: 'Curso Exemplo', codCurso: 'DS' });
   });
 
   it('picks the configured period when one is set', async () => {
@@ -182,7 +182,7 @@ describe('requests with a session', () => {
   it('tells which enrollment a period means, and lists them all', async () => {
     const { session } = setup();
     await expect(session.contextFor()).resolves.toMatchObject({ codPerLet: '2026S2' });
-    await expect(session.contextFor('2025S2')).resolves.toEqual({ codPerLet: '2025S2', idPerLet: 988, curso: null });
+    await expect(session.contextFor('2025S2')).resolves.toEqual({ codPerLet: '2025S2', idPerLet: 988, curso: null, codCurso: null });
     expect((await session.ensureSession()).contexts.map((c) => c.codPerLet)).toEqual(['2026S1', '2026S2', '2025S2']);
   });
 

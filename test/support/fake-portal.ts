@@ -16,9 +16,9 @@ export const PASSWORD = 's3nha&com=símbolos';
 
 /** Opaque IDs with characters that URL encoding would change. */
 export const CONTEXTS = [
-  { IDCONTEXTOALUNO: 'ctx+A/1==', CODPERLET: '2026S1', IDPERLET: 1017, DTINICIO: '2026-02-02T00:00:00', NOMECURSO: 'Curso Exemplo' },
-  { IDCONTEXTOALUNO: 'ctx+B/2==', CODPERLET: '2026S2', IDPERLET: 1042, DTINICIO: '2026-07-27T00:00:00', NOMECURSO: 'Curso Exemplo' },
-  { IDCONTEXTOALUNO: 'ctx+C/3==', CODPERLET: '2025S2', IDPERLET: 988, DTINICIO: null, NOMECURSO: null },
+  { IDCONTEXTOALUNO: 'ctx+A/1==', CODPERLET: '2026S1', IDPERLET: 1017, DTINICIO: '2026-02-02T00:00:00', NOMECURSO: 'Curso Exemplo', CODCURSO: 'DS' },
+  { IDCONTEXTOALUNO: 'ctx+B/2==', CODPERLET: '2026S2', IDPERLET: 1042, DTINICIO: '2026-07-27T00:00:00', NOMECURSO: 'Curso Exemplo', CODCURSO: 'DS' },
+  { IDCONTEXTOALUNO: 'ctx+C/3==', CODPERLET: '2025S2', IDPERLET: 988, DTINICIO: null, NOMECURSO: null, CODCURSO: null },
 ];
 
 export interface RecordedRequest {

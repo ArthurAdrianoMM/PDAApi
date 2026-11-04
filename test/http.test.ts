@@ -18,6 +18,7 @@ import {
 } from './support/fake-portal.js';
 import { AULAS_DISCIPLINA, PLANO_AULA } from './fixtures/aulas-disciplina.js';
 import { CALENDARIO } from './fixtures/calendario.js';
+import { AVALIACOES_INSTITUCIONAIS, FOTO_BASE64, INFORMACOES_PESSOAIS } from './fixtures/conta.js';
 import { ETAPAS_FALTA } from './fixtures/etapas.js';
 import { MATERIAIS_INSTITUCIONAIS, PDF, downloadResponse } from './fixtures/materiais.js';
 import { GRADE_CURRICULAR } from './fixtures/grade-curricular.js';
@@ -472,5 +473,27 @@ describe('endpoints end to end', () => {
     const missing = await authed('/materiais/1/arquivo');
     expect(missing.status).toBe(404);
     expect(await missing.json()).toMatchObject({ erro: 'item_inexistente' });
+  });
+
+  it('GET /eu, /eu/foto and /avaliacoes-institucionais', async () => {
+    const { authed } = setup({
+      routes: {
+        'TOTVSEducacional/Aluno/InformacoesPessoaisBasicas': academicRoute(CONTEXT_ID, INFORMACOES_PESSOAIS),
+        'TOTVSEducacional/AvaliacoesInstitucionais': academicRoute(CONTEXT_ID, AVALIACOES_INSTITUCIONAIS),
+      },
+    });
+    const eu = await authed('/eu');
+    expect(eu.status).toBe(200);
+    expect(await eu.json()).toMatchObject({ nome: 'Aluno Teste da Silva', login: USER, temFoto: true, matricula: { periodo: '2026S2' } });
+
+    const foto = await authed('/eu/foto');
+    expect(foto.status).toBe(200);
+    expect(foto.headers.get('content-type')).toBe('image/png');
+    expect(foto.headers.get('content-disposition')).toContain('attachment; filename="foto.png"');
+    expect(new Uint8Array(await foto.arrayBuffer())).toEqual(new Uint8Array(Buffer.from(FOTO_BASE64, 'base64')));
+
+    const avaliacoes = await authed('/avaliacoes-institucionais?objeto=Professor');
+    expect(avaliacoes.status).toBe(200);
+    expect(await avaliacoes.json()).toMatchObject({ avaliacoes: [{ id: 0, objeto: 'Professor' }] });
   });
 });

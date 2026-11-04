@@ -134,7 +134,7 @@ All are `GET` unless noted, all need the session cookies, and all return the env
 
 | Path | Verified | Response | Notes |
 |---|---|---|---|
-| `TOTVSEducacional/Aluno/InformacoesPessoaisBasicas` | yes | `data[0]`: `NOME` (string), `IMAGEM` (base64 photo) | Personal data. Do not log the photo. |
+| `TOTVSEducacional/Aluno/InformacoesPessoaisBasicas` | yes | `data[0]`: `NOME` (string), `IMAGEM` (the photo as raw base64, no `data:` prefix; a PNG of about 37 KB here, checked 2026-11-03) | Personal data. Do not log the photo. The API serves it decoded at `/eu/foto`, typed by its first bytes. |
 | `TOTVSEducacional/Parametrizacao/TotvsEducacional` | yes | `data`: about 90 portal settings (booleans, numbers and strings). Includes report codes such as `CodRelatorioConsultaNotaReports` and `PermiteAlterarSenha` | Portal configuration, read-only. |
 | `TOTVSEducacional/Parametrizacao/v1/TotvsEducacional/Geral` | yes | `data.UtilizaBuscaIpServer` (boolean) | |
 | `TOTVSEducacional/Permissoes` | yes | `data`: about 50 permission keys, each a string (for example `EDU_ACADEMICO_CENTRALALUNO_NOTAS`, `EDU_FINANCEIRO_NOVO`) | Use these to know which pages this student may open. |
@@ -173,7 +173,7 @@ Each page first calls `Periodos` and `DisciplinasAlunoPeriodoLetivo`, then its o
 | `TOTVSEducacional/Widget/DadosWidgetsFavoritos` | yes | Favourite widgets. Empty for this student. |
 | `TOTVSEducacional/Banner` | yes | `data[]` of banner images (`IDBANNER`, `TITULO`, `DTINICIAL`, `IMAGEM` (base64/url), `LINK`, `ORDEM`, `ATIVO`, `PORTALALUNO`). |
 | `TOTVSEducacional/v1/AtividadeOfertada/AlertaAtividadesAcademicas` | yes | Academic activity alerts. Empty here. |
-| `TOTVSEducacional/AvaliacoesInstitucionais` | yes | `data.Avaliacao[]` of institutional evaluations (`CODPROVA`, `IDEXECPROVA`, `DESCRICAO`, `NOMEPROFESSOR`, `NOMEDISCIPLINA`, `NOMECURSO`, …). |
+| `TOTVSEducacional/AvaliacoesInstitucionais` | yes | `data.Avaliacao[]` (10 here): `ID` (integer), `CODPROVA` (text, e.g. `F149IES_2026.2`), `IDEXECPROVA` (text, not always digits), `OBJETOAVALIADO` (`Professor` or `Curso`), `DESCOBJETOAVALIADO` (text naming the object: `Professor - Turma - Disciplina:…` or `Curso:<code> - …`), `DESCRICAO` (the professor's or the course's name), `NOMEPROFESSOR`, `NOMEDISCIPLINA`, `CODTURMA` (set on professor items), `NOMECURSO`, `CODCURSO` (set on the course item), and `NOME`, `NOMEHABILITACAO`, `NOMEGRADE`, `CODHABILITACAO`, `CODGRADE`, `REC*` (null) | Checked from a script on 2026-11-03: the same answer with the context cookie of 2026S2 and 2023S1. The page (`avaliacoes-institucionais-list.controller.js`) keeps items whose `CODCURSO` is empty or the current course's, and filters by `OBJETOAVALIADO`. Answering opens another system (TESTIS) through `EduLoginByToken.aspx` with an API token, and writes answers: out of scope. **The names in these fields are other people's: do not log or record them.** |
 | `TOTVSBiblioteca/v1/Context/LibraryUnitContext?pageSize=100` | yes | Library context. Not needed for the grades API. |
 
 ---

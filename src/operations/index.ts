@@ -1,6 +1,8 @@
 import { listarAulas } from './aulas.js';
+import { listarAvaliacoesInstitucionais } from './avaliacoes-institucionais.js';
 import { listarAulasDaDisciplina, obterAula } from './aulas-disciplina.js';
 import { listarEventosDoCalendario } from './calendario.js';
+import { baixarFoto, obterPerfil } from './conta.js';
 import type { Operation } from './define.js';
 import { listarDisciplinas } from './disciplinas.js';
 import { obterFaltas } from './faltas.js';
@@ -28,6 +30,8 @@ export { TAGS, type OperationTag } from './tags.js';
 
 /** Every operation of the API, in docs order. */
 export const operations: readonly Operation[] = [
+  obterPerfil,
+  baixarFoto,
   listarPeriodos,
   listarDisciplinas,
   obterNotas,
@@ -43,6 +47,7 @@ export const operations: readonly Operation[] = [
   listarMateriais,
   listarMateriaisDaDisciplina,
   baixarMaterial,
+  listarAvaliacoesInstitucionais,
 ];
 
 export function findOperation(id: string): Operation | undefined {

@@ -9,6 +9,7 @@ import { serve } from '@hono/node-server';
 import { createApp } from '../src/http/app.js';
 import { AULAS_DISCIPLINA, PLANO_AULA } from '../test/fixtures/aulas-disciplina.js';
 import { CALENDARIO } from '../test/fixtures/calendario.js';
+import { AVALIACOES_INSTITUCIONAIS, INFORMACOES_PESSOAIS } from '../test/fixtures/conta.js';
 import { ETAPAS_FALTA, ETAPAS_NOTA } from '../test/fixtures/etapas.js';
 import { MATERIAIS_DISCIPLINA, MATERIAIS_INSTITUCIONAIS, downloadResponse } from '../test/fixtures/materiais.js';
 import { GRADE_CURRICULAR } from '../test/fixtures/grade-curricular.js';
@@ -67,6 +68,8 @@ const portal = createFakePortal({
     }),
     'TOTVSEducacional/GradeCurricular/EnsinoSuperior': academic(GRADE_CURRICULAR),
     'TOTVSEducacional/Aluno/CalendarioAluno': academic(CALENDARIO),
+    'TOTVSEducacional/Aluno/InformacoesPessoaisBasicas': academic(INFORMACOES_PESSOAIS),
+    'TOTVSEducacional/AvaliacoesInstitucionais': academic(AVALIACOES_INSTITUCIONAIS),
     'TOTVSEducacional/Material/Institucional': academic(MATERIAIS_INSTITUCIONAIS),
     'TOTVSEducacional/Material': academic([]),
     'TOTVSEducacional/MateriaisTurmaDisciplina': academic(MATERIAIS_DISCIPLINA),

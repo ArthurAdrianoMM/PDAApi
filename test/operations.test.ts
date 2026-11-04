@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TAGS, isFileOperation, operations, runFileOperation, runOperation, type JsonOperation } from '../src/operations/index.js';
 import { listarAulas } from '../src/operations/aulas.js';
+import { listarAvaliacoesInstitucionais } from '../src/operations/avaliacoes-institucionais.js';
+import { baixarFoto, obterPerfil } from '../src/operations/conta.js';
 import { listarAulasDaDisciplina, obterAula } from '../src/operations/aulas-disciplina.js';
 import { listarEventosDoCalendario } from '../src/operations/calendario.js';
 import { listarDisciplinas } from '../src/operations/disciplinas.js';
@@ -14,6 +16,7 @@ import { obterGradeCurricular } from '../src/operations/grade-curricular.js';
 import { listarPeriodos } from '../src/operations/periodos.js';
 import { AULAS_DISCIPLINA, PLANO_AULA } from './fixtures/aulas-disciplina.js';
 import { CALENDARIO } from './fixtures/calendario.js';
+import { AVALIACOES_INSTITUCIONAIS, FOTO_BASE64, INFORMACOES_PESSOAIS } from './fixtures/conta.js';
 import { ETAPAS_FALTA, ETAPAS_NOTA } from './fixtures/etapas.js';
 import { MATERIAIS_DISCIPLINA, MATERIAIS_INSTITUCIONAIS, PDF, downloadResponse } from './fixtures/materiais.js';
 import { GRADE_CURRICULAR } from './fixtures/grade-curricular.js';
@@ -972,5 +975,82 @@ describe('materials', () => {
     await expect(runFileOperation(baixarMaterial, session, { idMaterial: 3311, idTurmaDisc: 48213 })).resolves.toMatchObject({ nome: 'aula21.pdf' });
     await expect(runFileOperation(baixarMaterial, session, { idMaterial: 9999, idTurmaDisc: 48213 })).rejects.toMatchObject({ code: 'item_inexistente' });
     expect(portal.paths().filter((p) => p.endsWith('Material/Download'))).toHaveLength(1);
+  });
+});
+
+describe('account', () => {
+  const sessionFor = (informacoes: unknown = INFORMACOES_PESSOAIS) =>
+    sessionWith({
+      'TOTVSEducacional/Aluno/InformacoesPessoaisBasicas': academicRoute(CONTEXT_ID, informacoes),
+      'TOTVSEducacional/AvaliacoesInstitucionais': academicRoute(CONTEXT_ID, AVALIACOES_INSTITUCIONAIS),
+    });
+
+  it('obterPerfil: the user, the session enrollment and every enrollment', async () => {
+    const { session } = sessionFor();
+    await expect(runOperation(obterPerfil, session, {})).resolves.toEqual({
+      nome: 'Aluno Teste da Silva',
+      login: 'aluno.teste',
+      email: null,
+      ra: null,
+      temFoto: true,
+      matricula: {
+        periodo: '2026S2',
+        inicio: '2026-07-27',
+        curso: { codigo: 'DS', nome: 'Curso Exemplo', habilitacao: null, matriz: null, tipo: null },
+        turno: null,
+        unidade: null,
+        situacao: { curso: null, periodo: null },
+      },
+      matriculas: [
+        { periodo: '2026S1', inicio: '2026-02-02', curso: 'Curso Exemplo', situacao: null, selecionada: false },
+        { periodo: '2026S2', inicio: '2026-07-27', curso: 'Curso Exemplo', situacao: null, selecionada: true },
+        { periodo: '2025S2', inicio: null, curso: null, situacao: null, selecionada: false },
+      ],
+    });
+  });
+
+  it('obterPerfil: falls back to the login name, and says when there is no photo', async () => {
+    const { session } = sessionFor([{ NOME: null, IMAGEM: null }]);
+    await expect(runOperation(obterPerfil, session, {})).resolves.toMatchObject({ nome: 'Aluno Teste', temFoto: false });
+  });
+
+  it('baixarFoto: the base64 photo as an image, typed by its first bytes', async () => {
+    const { session } = sessionFor();
+    const foto = await runFileOperation(baixarFoto, session, {});
+    expect(foto).toMatchObject({ nome: 'foto.png', tipo: 'image/png' });
+    expect([...foto.conteudo.subarray(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]);
+    expect(foto.conteudo).toHaveLength(Buffer.from(FOTO_BASE64, 'base64').length);
+
+    const comPrefixo = sessionFor([{ NOME: 'x', IMAGEM: `data:image/png;base64,${FOTO_BASE64}` }]).session;
+    await expect(runFileOperation(baixarFoto, comPrefixo, {})).resolves.toMatchObject({ tipo: 'image/png' });
+  });
+
+  it('baixarFoto: item_inexistente without a photo, resposta_inesperada when it is not base64', async () => {
+    await expect(runFileOperation(baixarFoto, sessionFor([{ NOME: 'x', IMAGEM: '' }]).session, {})).rejects.toMatchObject({ code: 'item_inexistente' });
+    await expect(runFileOperation(baixarFoto, sessionFor([{ NOME: 'x', IMAGEM: 'não é base64!' }]).session, {})).rejects.toMatchObject({
+      code: 'resposta_inesperada',
+    });
+  });
+
+  it("listarAvaliacoesInstitucionais: leaves out another course's, like the page, and filters by object", async () => {
+    const { session } = sessionFor();
+    const { avaliacoes } = await runOperation(listarAvaliacoesInstitucionais, session, {});
+    expect(avaliacoes.map((a) => [a.id, a.objeto])).toEqual([
+      [0, 'Professor'],
+      [1, 'Curso'],
+    ]);
+    expect(avaliacoes[0]).toEqual({
+      id: 0,
+      questionario: 'F149IES_2026.2',
+      aplicacao: '73F0',
+      objeto: 'Professor',
+      avaliado: 'Professora Exemplo',
+      professor: 'Professora Exemplo',
+      disciplina: 'Programação Web II',
+      turma: 'DS-2026-A',
+      curso: { codigo: null, nome: null },
+    });
+    const cursos = await runOperation(listarAvaliacoesInstitucionais, session, { objeto: 'Curso' });
+    expect(cursos.avaliacoes.map((a) => a.curso)).toEqual([{ codigo: 'DS', nome: 'Curso Exemplo' }]);
   });
 });
