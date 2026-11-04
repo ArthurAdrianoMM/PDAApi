@@ -1,26 +1,11 @@
 import { z } from 'zod';
 import { codeLike, optionalCode, optionalText } from '../core/schemas.js';
+import { at, hoje, somarDias } from './dates.js';
 import { defineOperation } from './define.js';
 import { periodoInput, periodoOutput } from './periodo.js';
 
 /** The `#/faltas` page's default window: 360 days back from today. */
 const JANELA_PADRAO_DIAS = 360;
-
-const pad = (n: number) => String(n).padStart(2, '0');
-const localDate = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-const hoje = () => localDate(new Date());
-
-/** `AAAA-MM-DD` as a local `Date` at the given time. */
-function at(date: string, hours: number, minutes = 0, seconds = 0, ms = 0): Date {
-  const [year, month, day] = date.split('-').map(Number) as [number, number, number];
-  return new Date(year, month - 1, day, hours, minutes, seconds, ms);
-}
-
-function diasAntes(date: string, dias: number): string {
-  const d = at(date, 12);
-  d.setDate(d.getDate() - dias);
-  return localDate(d);
-}
 
 /**
  * `data.SFREQUENCIAALUNO[]` (ENDPOINTS.md 4.3). Types as recorded on 2026-10-29.
@@ -135,7 +120,7 @@ export const listarFaltasPorAula = defineOperation({
   async handler(session, input) {
     const context = await session.contextFor(input.periodo);
     const ate = input.ate ?? hoje();
-    const de = input.de ?? diasAntes(ate, JANELA_PADRAO_DIAS);
+    const de = input.de ?? somarDias(ate, -JANELA_PADRAO_DIAS);
     const data = await session.getData(
       'TOTVSEducacional/Aluno/Falta/Aula',
       { dataDe: at(de, 0).toISOString(), dataAte: at(ate, 23, 59, 59, 999).toISOString(), tipoFrequencia: 'A' },

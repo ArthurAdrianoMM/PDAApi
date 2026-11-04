@@ -1,10 +1,8 @@
 import { z } from 'zod';
 import { codeLike, optionalCode, optionalText } from '../core/schemas.js';
+import { DIAS, diaDaSemana, hoje } from './dates.js';
 import { defineOperation } from './define.js';
 import { periodoInput, periodoOutput } from './periodo.js';
-
-/** `DIASEMANA` as the portal's page reads it: `'1'` is Sunday, `'7'` Saturday (ENDPOINTS.md 4.3). */
-const DIAS = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'] as const;
 
 const hora = z.string().regex(/^\d{2}:\d{2}$/);
 /** `YYYY-MM-DDTHH:mm:ss` without a zone; only the date matters for a slot's validity. */
@@ -82,7 +80,7 @@ function toHorario(row: AulaRow): Horario {
   const diaSemana = Number(row.DIASEMANA);
   return {
     diaSemana,
-    dia: DIAS[diaSemana - 1]!,
+    dia: diaDaSemana(diaSemana),
     inicio: row.HORAINICIAL,
     fim: row.HORAFINAL,
     idTurmaDisc: row.IDTURMADISC,
@@ -96,13 +94,6 @@ function toHorario(row: AulaRow): Horario {
     vigencia: row.DATAINICIAL && row.DATAFINAL ? { inicio: row.DATAINICIAL, fim: row.DATAFINAL } : null,
     urlAulaOnline: row.URLAULAONLINE,
   };
-}
-
-/** Today in this machine's time zone, `YYYY-MM-DD`. */
-function today(): string {
-  const now = new Date();
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 }
 
 export const obterHorario = defineOperation({
@@ -185,11 +176,11 @@ export const obterHorario = defineOperation({
     const faixas = new Map<string, { inicio: string; fim: string }>();
     for (const row of rows) faixas.set(`${row.HORAINICIAL}-${row.HORAFINAL}`, { inicio: row.HORAINICIAL, fim: row.HORAFINAL });
 
-    const hoje = today();
+    const today = hoje();
     const horarios = rows
       .filter((row): row is AulaRow => row.DIASEMANA !== '0')
       .map(toHorario)
-      .filter((horario) => incluirEncerrados || horario.vigencia === null || horario.vigencia.fim >= hoje)
+      .filter((horario) => incluirEncerrados || horario.vigencia === null || horario.vigencia.fim >= today)
       .sort((a, b) => a.diaSemana - b.diaSemana || a.inicio.localeCompare(b.inicio) || a.fim.localeCompare(b.fim));
 
     return {
