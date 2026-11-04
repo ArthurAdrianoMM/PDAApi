@@ -52,6 +52,21 @@ export const planoAulaRowSchema = z.looseObject({
 
 export type PlanoAulaRow = z.output<typeof planoAulaRowSchema>;
 
+/** `PlanoAula/Aula` adds what happened in the lesson. Types as recorded on 2026-11-03. */
+export const planoAulaDetalheRowSchema = planoAulaRowSchema.extend({
+  DATAEFETIVA: dia.nullish(),
+  HORAINICIALREALIZADO: hora.nullish(),
+  HORAFINALREALIZADO: hora.nullish(),
+  REPOSICAO: optionalText,
+  SUBSTITUTO: optionalText,
+});
+
+/** `S`/`N` flags as booleans; anything else is `null`. */
+export const simNao = (value: string | null | undefined) => (value === 'S' ? true : value === 'N' ? false : null);
+
+/** `TIPOAULA` as `{ codigo, descricao }`, or `null` when blank. */
+export const tipoAula = (codigo: string | null) => (codigo ? { codigo, descricao: TIPOS_AULA[codigo] ?? null } : null);
+
 /**
  * `SPLANOAULAARQUIVO` / `SPlanoAulaArquivo` items. Always empty so far, so the
  * types are not recorded; these are the fields the page reads, all optional.
@@ -71,6 +86,14 @@ const arquivoSchema = z.object({
   tamanhoKb: z.number().nullable().describe('Tamanho em KB, como a página do portal mostra.'),
 });
 
+export const tipoAulaSchema = z
+  .object({
+    codigo: z.string().describe('`TIPOAULA` do portal: `T`, `P`, `L`, `E` ou `X`.'),
+    descricao: z.string().nullable().describe('O texto da página do portal para o código, ou `null` se o código for outro.'),
+  })
+  .nullable()
+  .describe('Tipo da aula, ou `null` quando o portal não informa.');
+
 export const aulaSchema = z.object({
   idPlanoAula: z.number().int().describe('ID da aula no plano de aulas. Combina com `idPlanoAula` de `/faltas/aulas`.'),
   idTurmaDisc: z.number().int().describe('ID da turma da disciplina. Combina com `/disciplinas`.'),
@@ -85,13 +108,7 @@ export const aulaSchema = z.object({
   aula: z.number().int().nullable().describe('Número da aula na disciplina (`AULA`).'),
   inicio: z.string().describe('Hora de início, `HH:mm`.'),
   fim: z.string().describe('Hora de fim, `HH:mm`.'),
-  tipo: z
-    .object({
-      codigo: z.string().describe('`TIPOAULA` do portal: `T`, `P`, `L`, `E` ou `X`.'),
-      descricao: z.string().nullable().describe('O texto da página do portal para o código, ou `null` se o código for outro.'),
-    })
-    .nullable()
-    .describe('Tipo da aula, ou `null` quando o portal não informa.'),
+  tipo: tipoAulaSchema,
   conteudoPrevisto: z.string().nullable().describe('"Conteúdo previsto" no portal (`CONTEUDO`). Texto puro.'),
   conteudoEfetivo: z.string().nullable().describe('"Conteúdo efetivo", o que foi dado (`CONTEUDOEFETIVO`). Texto puro.'),
   licaoDeCasa: z.string().nullable().describe('"Lição de casa" (`LICAOCASA`).'),
@@ -123,12 +140,12 @@ export function toAula(row: PlanoAulaRow, arquivos: ArquivoRow[]): Aula {
     aula: row.AULA ?? null,
     inicio: row.HORAINICIAL,
     fim: row.HORAFINAL,
-    tipo: row.TIPOAULA ? { codigo: row.TIPOAULA, descricao: TIPOS_AULA[row.TIPOAULA] ?? null } : null,
+    tipo: tipoAula(row.TIPOAULA),
     conteudoPrevisto: row.CONTEUDO,
     conteudoEfetivo: row.CONTEUDOEFETIVO,
     licaoDeCasa: row.LICAOCASA,
     observacao: row.OBSERVACAO,
-    confirmada: row.CONFIRMADO === 'S' ? true : row.CONFIRMADO === 'N' ? false : null,
+    confirmada: simNao(row.CONFIRMADO),
     local: { predio: row.PREDIO, bloco: row.BLOCO, sala: row.SALA },
     urlAulaOnline: row.URLAULAONLINE,
     arquivos: arquivos
@@ -162,3 +179,30 @@ export const AULA_EXEMPLO: Aula = {
   urlAulaOnline: null,
   arquivos: [],
 };
+
+export const aulaDetalheSchema = aulaSchema.extend({
+  realizada: z
+    .object({
+      data: z.iso.date().nullable().describe('Dia em que a aula foi dada (`DATAEFETIVA`).'),
+      inicio: z.string().nullable().describe('Hora em que começou, `HH:mm`.'),
+      fim: z.string().nullable().describe('Hora em que terminou, `HH:mm`.'),
+    })
+    .nullable()
+    .describe('Quando a aula foi dada, ou `null` se o portal ainda não registrou.'),
+  reposicao: z.boolean().nullable().describe('Se é aula de reposição (`REPOSICAO`).'),
+  professorSubstituto: z.boolean().nullable().describe('Se foi dada por um professor substituto (`SUBSTITUTO`).'),
+});
+
+export type AulaDetalhe = z.output<typeof aulaDetalheSchema>;
+
+export function toAulaDetalhe(row: z.output<typeof planoAulaDetalheRowSchema>, arquivos: ArquivoRow[]): AulaDetalhe {
+  const realizada = row.DATAEFETIVA || row.HORAINICIALREALIZADO || row.HORAFINALREALIZADO;
+  return {
+    ...toAula(row, arquivos),
+    realizada: realizada
+      ? { data: row.DATAEFETIVA ?? null, inicio: row.HORAINICIALREALIZADO ?? null, fim: row.HORAFINALREALIZADO ?? null }
+      : null,
+    reposicao: simNao(row.REPOSICAO),
+    professorSubstituto: simNao(row.SUBSTITUTO),
+  };
+}

@@ -7,6 +7,7 @@
  */
 import { serve } from '@hono/node-server';
 import { createApp } from '../src/http/app.js';
+import { AULAS_DISCIPLINA, PLANO_AULA } from '../test/fixtures/aulas-disciplina.js';
 import { GRADE_CURRICULAR } from '../test/fixtures/grade-curricular.js';
 import { CONTEXTS, ORIGIN, PASSWORD, USER, contextRoute, createFakePortal, fakeSession } from '../test/support/fake-portal.js';
 
@@ -62,6 +63,19 @@ const portal = createFakePortal({
       SQuadroHorarioAulaOnline: [],
     }),
     'TOTVSEducacional/GradeCurricular/EnsinoSuperior': academic(GRADE_CURRICULAR),
+    // The fake ignores the window and the lesson asked for.
+    'TOTVSEducacional/AulasDisciplina/48213': academic(AULAS_DISCIPLINA),
+    'TOTVSEducacional/AulasDisciplina/48230': academic([]),
+    'TOTVSEducacional/PlanoAula/Aula': academic(PLANO_AULA),
+    // Only the slots matter here: /aulas reads which subclass each one is.
+    'TOTVSEducacional/MatriculaDisciplinaPorHabilitacaoFilialTurmaDisc': academic({
+      DisciplinaInfo: [],
+      HorariosTurmaDiscInfo: [
+        { IDHORARIOTURMA: 90140, CODSUBTURMA: 'SUBTURMA C' },
+        { IDHORARIOTURMA: 90141, CODSUBTURMA: 'SUBTURMA C' },
+      ],
+      ProfessorTurmaDiscInfo: [],
+    }),
     // The fake ignores dtInicial/dtFinal and always answers with these lessons.
     'TOTVSEducacional/v1/planoaulas/aulas': academic({
       SPlanoAula: [

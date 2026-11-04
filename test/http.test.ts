@@ -16,6 +16,7 @@ import {
   fakeSession,
   type FakePortalOptions,
 } from './support/fake-portal.js';
+import { AULAS_DISCIPLINA, PLANO_AULA } from './fixtures/aulas-disciplina.js';
 import { GRADE_CURRICULAR } from './fixtures/grade-curricular.js';
 
 const TOKEN = 'token-de-teste';
@@ -370,5 +371,33 @@ describe('endpoints end to end', () => {
     const wrong = await authed('/grade-curricular?situacao=todas');
     expect(wrong.status).toBe(400);
     expect(await wrong.json()).toMatchObject({ erro: 'parametro_invalido', detalhes: [{ campo: 'situacao' }] });
+  });
+
+  it('GET /disciplinas/{idTurmaDisc}/aulas and /aulas/{idPlanoAula}: path parameters, typed and checked', async () => {
+    const { authed } = setup({
+      routes: {
+        'TOTVSEducacional/DisciplinasAlunoPeriodoLetivo': academicRoute(CONTEXT_ID, [
+          { IDTURMADISC: 48213, CODDISC: 'PW2', NOME: 'Programação Web II', CODTURMA: 'DS-2026-A', CODSUBTURMA: null, IDPERLET: 1042, CODSTATUS: 20, DESCRICAO: 'Matriculado' },
+        ]),
+        'TOTVSEducacional/AulasDisciplina/48213': academicRoute(CONTEXT_ID, AULAS_DISCIPLINA),
+        'TOTVSEducacional/PlanoAula/Aula': academicRoute(CONTEXT_ID, PLANO_AULA),
+      },
+    });
+
+    const list = await authed('/disciplinas/48213/aulas?de=2026-11-02&ate=2026-11-08');
+    expect(list.status).toBe(200);
+    expect(await list.json()).toMatchObject({ idTurmaDisc: 48213, dias: [{ data: '2026-11-03' }, { data: '2026-11-05' }] });
+
+    const one = await authed('/disciplinas/48213/aulas/7310021');
+    expect(one.status).toBe(200);
+    expect(await one.json()).toMatchObject({ aula: { idPlanoAula: 7310021, realizada: { inicio: '18:30' } } });
+
+    const notANumber = await authed('/disciplinas/pw2/aulas');
+    expect(notANumber.status).toBe(400);
+    expect(await notANumber.json()).toMatchObject({ erro: 'parametro_invalido', detalhes: [{ campo: 'idTurmaDisc' }] });
+
+    const otherClass = await authed('/disciplinas/1/aulas');
+    expect(otherClass.status).toBe(404);
+    expect(await otherClass.json()).toMatchObject({ erro: 'item_inexistente' });
   });
 });

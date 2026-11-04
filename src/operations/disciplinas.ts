@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { PortalSession } from '../core/index.js';
+import { PortalError, type PortalSession } from '../core/index.js';
 import { codeLike, integerLike, optionalCode } from '../core/schemas.js';
 import { defineOperation } from './define.js';
 import { periodoInput, periodoOutput } from './periodo.js';
@@ -27,6 +27,20 @@ export type DisciplinaRow = z.output<typeof upstreamSchema>[number];
 /** The classes of one enrollment, as `DisciplinasAlunoPeriodoLetivo` lists them. */
 export function lerDisciplinas(session: PortalSession, { apenasEmCurso = false, periodo }: { apenasEmCurso?: boolean; periodo?: string | undefined }) {
   return session.getData('TOTVSEducacional/DisciplinasAlunoPeriodoLetivo', { mostraApenasDiscEmCurso: apenasEmCurso }, upstreamSchema, { periodo });
+}
+
+/**
+ * One class of the enrollment, by `IDTURMADISC`. The per-class endpoints take
+ * IDs from this list only, never IDs the portal didn't give (INTENT.md); a
+ * class of another period is `item_inexistente`.
+ */
+export async function buscarDisciplina(session: PortalSession, idTurmaDisc: number, periodo?: string): Promise<DisciplinaRow> {
+  const found = (await lerDisciplinas(session, { periodo })).find((row) => row.IDTURMADISC === idTurmaDisc);
+  if (found) return found;
+  throw new PortalError(
+    'item_inexistente',
+    `A disciplina ${idTurmaDisc} não está em /disciplinas deste período. Para outro período, envie \`periodo\`.`,
+  );
 }
 
 const disciplinaSchema = z.object({

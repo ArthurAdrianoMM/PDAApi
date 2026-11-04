@@ -219,6 +219,14 @@ Each class has a numeric `IDTURMADISC`, taken from `DisciplinasAlunoPeriodoLetiv
 | `TOTVSEducacional/EtapasTurmaDisc?idTurmaDisc=<id>&tipoEtapaTurmaDisc=F` | yes | `data[]` of stages for the class: `CODETAPA`, `TIPOETAPA`, `APLICACAO`, `DESCRICAO`, `FREQMIN`, `DTINICIO`, `DTFIM`, `AULASDADAS`, `AULASPREVISTAS`, `DTLIMITEDIGITACAO`, `DISPONIVELALUNOS`, `ETAPAENCERRADA`, `PERMITEDIGITACAO`, `EXIBENAWEB`, `ETAPAFINAL` (and others) | Assessment stages. Used by the grades and absences pages. |
 | `TOTVSEducacional/MateriaisTurmaDisciplina?idTurmaDisc=<id>` | yes (empty) | `data[]` (empty for the classes checked) | Materials for one class. |
 
+**The class page in detail** (from the page's code, `disciplina.controller.js`, `aulas-lista.controller.js`, `aulas.factory.js` and `matricula-disciplina-detalhes.factory.js`, and a run from a script on 2026-11-03, shapes and codes only):
+
+- Opening a class calls `TOTVSEducacional/MatriculaDisciplinaPorHabilitacaoFilialTurmaDisc?idTurmaDisc=<id>`. `data.DisciplinaInfo[0]` has the class (`IDTURMADISC`, `CODSUBTURMA`, `CODDISC`, `NOME`, `CH`, `NUMCREDITOS`, `CODTURMA`, `TIPODISCIPLINA`, `CODPERIODO`, `DESCPERIODO`, `DISCIPLINATCC` `N`, …). `data.HorariosTurmaDiscInfo[]` has every slot of the class, of every subclass (`IDHORARIOTURMA`, `CODSUBTURMA`, `DIASEMANA` integer, `HORAINICIAL`, `HORAFINAL`, `DATAINICIAL`, `DATAFINAL`, `AULA` digits as text, `PROFESSOR` name). `data.ProfessorTurmaDiscInfo[]` has the professors (`NOME`, `CODPROF`, `DTINICIO`, `DTFIM` null here).
+- `DisciplinaInfo[0].CODSUBTURMA` was the same as `CODSUBTURMA` of `DisciplinasAlunoPeriodoLetivo` for all 5 classes checked (null, or `SUBTURMA C`).
+- The lesson tab then calls `AulasDisciplina/{id}` with that `codSubTurma` (empty string when null) and `dataInicio`/`dataFim` as noon of each day. **Without the subclass**, a class with subclasses answered with every subclass's lessons (6 a day instead of 2). On load, the window is this week: Monday to the next Sunday, and a Sunday counts as the end of the week before.
+- `AulasDisciplina` sends the days newest first. In each lesson, `PlanoAula` is PascalCase (`IdPlanoAula`, `NumAula`, `IdHorarioTurma`, `DataAula`, `HoraInicial`, `HoraFinal`, `Conteudo`, `ConteudoEfetivo`, `LicaoCasa`, `Observacao` (empty strings when unset), `Confirmado` (boolean), `TipoAula` (`P` or empty), `UrlAulaOnline`), `Horario` has `DiaSemana` (integer), and `Frequencia` is `Presente`, `Ausente`, or null when not recorded yet. `ListaFaltas[]` has one row per lesson of the day: `TipoFrequencia` `1` for an absence (with `AbonoFalta` `Não`) and `0` for a presence, `IdHorarioTurma`, `Data`, `HoraInicial`, `HoraFinal`, `Justificada` and `JustificativaFalta` (empty here), and `Aula` always `0`, so a row matches its lesson by `IdHorarioTurma`. `QuantidadeFaltas` matched the absent lessons of the day. `ListaMateriais[]` was empty, so its shape is not recorded.
+- `PlanoAula/Aula` types differ from `v1/planoaulas/aulas`: `DIASEMANA` is text (`"2"`), `CONFIRMADO` `N`. It adds `DATAEFETIVA`, `HORAINICIALREALIZADO`, `HORAFINALREALIZADO` (set once the lesson happened) and `REPOSICAO`, `SUBSTITUTO` (`N`). A lesson ID the portal doesn't have for the class returns `SPlanoAula: []`, HTTP 200.
+
 Page `#/aulas` loads its view (`aulas-lista.view.html`) on navigation. Its own data calls on load were not separated from the calendar page's in this capture. The per-class `AulasDisciplina/{id}` call is what the lesson list uses, and it was observed in a later navigation. The lesson view uses `PlanoAula/Aula` and `PlanoAula/ArquivoAula` (the latter returns 403 here).
 
 ### 4.8 Lesson plan by day (verified)
@@ -307,7 +315,7 @@ All academic pages listed in the menu are now mapped (sections 4.5 to 4.9). The 
 
 ## 7. Known gaps and next steps
 
-1. Capture the lesson calls for a selected class in the browser (click a class on `#/aulas`), so the per-class request list comes from the page itself, not from the factory code.
+1. ~~Capture the lesson calls for a selected class.~~ Done from the page code and a script on 2026-11-03 (section 4.7).
 2. Find out why `PlanoAula/ArquivoAula` returns 403. It may need a permission that this account lacks. Do not try to get around it.
 3. ~~Check the `Contexto/Selecao` request body.~~ Not needed: the context cookie alone switches enrollments (section 2.4).
 4. Find the session lifetime. Session expiry was observed (section 3), but the timing was not measured.

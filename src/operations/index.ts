@@ -1,4 +1,5 @@
 import { listarAulas } from './aulas.js';
+import { listarAulasDaDisciplina, obterAula } from './aulas-disciplina.js';
 import type { Operation } from './define.js';
 import { listarDisciplinas } from './disciplinas.js';
 import { obterFaltas } from './faltas.js';
@@ -21,6 +22,8 @@ export const operations: readonly Operation[] = [
   obterGradeCurricular,
   obterHorario,
   listarAulas,
+  listarAulasDaDisciplina,
+  obterAula,
 ];
 
 export function findOperation(id: string): Operation | undefined {

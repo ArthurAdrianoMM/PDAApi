@@ -32,6 +32,12 @@ export function somarDias(date: string, dias: number): string {
   return localDate(d);
 }
 
+/** Monday of the week of `date`. A Sunday belongs to the week that ends on it, as on the portal's pages. */
+export function segundaDaSemana(date: string): string {
+  const day = at(date, 12).getDay();
+  return somarDias(date, day === 0 ? -6 : 1 - day);
+}
+
 /** Days from `de` to `ate`, both counted: the same day is 1. */
 export function diasEntre(de: string, ate: string): number {
   return Math.round((at(ate, 12).getTime() - at(de, 12).getTime()) / 86_400_000) + 1;
