@@ -4,10 +4,13 @@
  * counts. Values are never printed, except the distinct values of fields named
  * in `--values`, which is meant for codes and enums, never for personal fields.
  *
- *   npm run probe -- <path[?query]>… [--values CAMPO,CAMPO] [--periodo 2026S1]
+ *   npm run probe -- <path[?query]>… [--values CAMPO,CAMPO] [--periodo 2026S1] [--contexto PARAM]
  *   npm run probe -- TOTVSEducacional/Periodos
  *   npm run probe -- 'TOTVSEducacional/EtapasTurmaDisc?idTurmaDisc=1&tipoEtapaTurmaDisc=F'
  *   npm run probe -- TOTVSEducacional/Aluno/CalendarioAluno --values EVENTTYPE,LABEL
+ *
+ * `--contexto PARAM` sends the enrollment's context ID in that query parameter,
+ * as `v1/planoaulas/aulas` needs (ENDPOINTS.md 4.8). The ID is never printed.
  *
  * The user and password come from PORTAL_ALUNO_USER / PORTAL_ALUNO_PASSWORD or
  * are asked in the terminal, like `npm run try`.
@@ -15,7 +18,7 @@
 import { parseArgs } from 'node:util';
 import { z } from 'zod';
 import { terminalCredentials } from '../src/cli/prompt.js';
-import { PortalSession, isPortalError } from '../src/core/index.js';
+import { PortalSession, isPortalError, type RequestOptions } from '../src/core/index.js';
 
 const MAX_VALUES = 25;
 
@@ -104,9 +107,9 @@ function collect(value: unknown, names: Set<string>, out: Map<string, Map<string
 }
 
 /** Prints the shape of one path's `data`, and the values asked for. */
-async function probe(session: PortalSession, target: string, valueFields: Set<string>, periodo?: string): Promise<void> {
+async function probe(session: PortalSession, target: string, valueFields: Set<string>, options: RequestOptions): Promise<void> {
   const [path = '', search = ''] = target.split('?', 2);
-  const data = await session.getData(path, Object.fromEntries(new URLSearchParams(search)), z.unknown(), { periodo });
+  const data = await session.getData(path, Object.fromEntries(new URLSearchParams(search)), z.unknown(), options);
   const shape = newShape();
   add(shape, data);
   print(shape, 'data', '', 1);
@@ -134,13 +137,14 @@ function report(error: unknown): void {
 async function main(): Promise<void> {
   const { values, positionals } = parseArgs({
     allowPositionals: true,
-    options: { values: { type: 'string' }, periodo: { type: 'string' } },
+    options: { values: { type: 'string' }, periodo: { type: 'string' }, contexto: { type: 'string' } },
   });
   if (positionals.length === 0) {
-    console.error('Uso: npm run probe -- <caminho[?query]>… [--values CAMPO,CAMPO] [--periodo 2026S1]');
+    console.error('Uso: npm run probe -- <caminho[?query]>… [--values CAMPO,CAMPO] [--periodo 2026S1] [--contexto PARAM]');
     process.exit(2);
   }
   const valueFields = new Set(values.values?.split(',') ?? []);
+  const options: RequestOptions = { periodo: values.periodo, ...(values.contexto ? { contextParam: values.contexto } : {}) };
 
   const session = new PortalSession({ credentials: terminalCredentials() });
   try {
@@ -149,7 +153,7 @@ async function main(): Promise<void> {
     for (const target of positionals) {
       console.log(`\n## ${target}`);
       // One failing path doesn't stop the others.
-      await probe(session, target, valueFields, values.periodo).catch(report);
+      await probe(session, target, valueFields, options).catch(report);
     }
   } catch (error) {
     report(error);

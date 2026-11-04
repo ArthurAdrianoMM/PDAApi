@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TAGS, operations, runOperation, type Operation } from '../src/operations/index.js';
+import { listarAulas } from '../src/operations/aulas.js';
 import { listarDisciplinas } from '../src/operations/disciplinas.js';
 import { obterHorario } from '../src/operations/horario.js';
 import { obterNotas } from '../src/operations/notas.js';
@@ -433,6 +434,7 @@ describe('periodo', () => {
     { op: obterFaltas, path: 'TOTVSEducacional/FaltaEtapa', data: { FaltasEtapa: [] } },
     { op: listarFaltasPorAula, path: 'TOTVSEducacional/Aluno/Falta/Aula', data: { SFREQUENCIAALUNO: [] } },
     { op: obterHorario, path: 'TOTVSEducacional/QuadroHorarioAluno', data: { SHorarioAluno: [] } },
+    { op: listarAulas, path: 'TOTVSEducacional/v1/planoaulas/aulas', data: { SPlanoAula: [] } },
   ];
 
   it.each(cases.map((c) => [c.op.id, c] as const))('%s answers for the period asked, with its context cookie', async (_, { op, path, data }) => {
@@ -444,5 +446,135 @@ describe('periodo', () => {
     expect(sent).toEqual([CONTEXT_ID, 'ctx+A/1==']);
 
     await expect(runOperation(op, session, { periodo: '1999S1' })).rejects.toMatchObject({ code: 'periodo_inexistente' });
+  });
+});
+
+describe('listarAulas', () => {
+  const today = (date: string) => vi.useFakeTimers({ toFake: ['Date'] }).setSystemTime(new Date(`${date}T10:00:00`));
+  afterEach(() => vi.useRealTimers());
+
+  /** One `SPlanoAula` row, as `v1/planoaulas/aulas` sent it on 2026-11-03. */
+  const row = (extra: Record<string, unknown> = {}) => ({
+    CODCOLIGADA: 1,
+    IDHORARIOTURMA: 90121,
+    DIASEMANA: 3,
+    HORAINICIAL: '18:30',
+    HORAFINAL: '19:20',
+    CODPREDIO: 'PRD1',
+    PREDIO: 'PRD1 - Prédio 1',
+    CODBLOCO: '1',
+    BLOCO: '1 - Bloco A',
+    CODSALA: 'LAB3',
+    SALA: 'LAB3 - Laboratório 3',
+    DATA: '2026-11-03T00:00:00',
+    AULA: 21,
+    IDTURMADISC: 48213,
+    TIPOFALTA: null,
+    CONTEUDO: 'Rotas e middlewares.',
+    CONTEUDOEFETIVO: null,
+    LICAOCASA: '',
+    CODTURMA: 'DS-2026-A',
+    CODDISC: 'PW2',
+    NOMEDISC: 'Programação Web II',
+    CODSUBTURMA: '',
+    CONFIRMADO: 'N',
+    IDPLANOAULA: 7310452,
+    TIPOAULA: 'P',
+    CODHOR: 3,
+    IDPERLET: 1042,
+    URLAULAONLINE: '',
+    FREQUENCIADISPWEB: '1',
+    CODFILIAL: null,
+    CODPROF: null,
+    LOCACAO: null,
+    HORAINICIALREALIZADO: null,
+    HORAFINALREALIZADO: null,
+    OBSERVACAO: null,
+    ...extra,
+  });
+  const rows = [
+    row({ IDPLANOAULA: 7310460, DATA: '2026-11-04T00:00:00', DIASEMANA: 4, HORAINICIAL: '20:20', HORAFINAL: '21:10', TIPOAULA: null }),
+    row(),
+    row({ IDPLANOAULA: 7311800, IDTURMADISC: 48230, CODDISC: 'BD1', HORAINICIAL: '17:30', HORAFINAL: '18:20', TIPOAULA: 'Z', CONFIRMADO: 'S', CODSUBTURMA: 'SUBTURMA C' }),
+  ];
+  const arquivos = [{ IDPLANOAULA: 7310452, IDMATERIALSEC: 991, ARQUIVO: 'slides.pdf', TAMANHO: 120, PATHARQUIVO: 'x' }];
+  const sessionFor = (data: unknown = { SPlanoAula: rows, SPLANOAULAARQUIVO: arquivos }) =>
+    sessionWith({ 'TOTVSEducacional/v1/planoaulas/aulas': academicRoute(CONTEXT_ID, data) });
+  const sentQuery = (portal: { requests: { url: URL }[] }) =>
+    Object.fromEntries(portal.requests.findLast((r) => r.url.pathname.endsWith('v1/planoaulas/aulas'))!.url.searchParams);
+
+  it('maps the lessons, sorted by day and time, with their files', async () => {
+    const { session } = sessionFor();
+    const result = await runOperation(listarAulas, session, { de: '2026-11-03', ate: '2026-11-04' });
+
+    expect(result).toMatchObject({ periodo: '2026S2', de: '2026-11-03', ate: '2026-11-04' });
+    expect(result.aulas.map((a) => [a.data, a.inicio, a.idPlanoAula])).toEqual([
+      ['2026-11-03', '17:30', 7311800],
+      ['2026-11-03', '18:30', 7310452],
+      ['2026-11-04', '20:20', 7310460],
+    ]);
+    expect(result.aulas[1]).toEqual({
+      idPlanoAula: 7310452,
+      idTurmaDisc: 48213,
+      idHorarioTurma: 90121,
+      codigo: 'PW2',
+      disciplina: 'Programação Web II',
+      turma: 'DS-2026-A',
+      subturma: null,
+      data: '2026-11-03',
+      diaSemana: 3,
+      dia: 'terca',
+      aula: 21,
+      inicio: '18:30',
+      fim: '19:20',
+      tipo: { codigo: 'P', descricao: 'Aula prática' },
+      conteudoPrevisto: 'Rotas e middlewares.',
+      conteudoEfetivo: null,
+      licaoDeCasa: null,
+      observacao: null,
+      confirmada: false,
+      local: { predio: 'PRD1 - Prédio 1', bloco: '1 - Bloco A', sala: 'LAB3 - Laboratório 3' },
+      urlAulaOnline: null,
+      arquivos: [{ idMaterial: 991, nome: 'slides.pdf', tamanhoKb: 120 }],
+    });
+    expect(result.aulas[0]).toMatchObject({ tipo: { codigo: 'Z', descricao: null }, confirmada: true, subturma: 'SUBTURMA C', arquivos: [] });
+    expect(result.aulas[2]).toMatchObject({ tipo: null, dia: 'quarta' });
+  });
+
+  it('asks for noon of each day, the ordering and the encoded context ID, like the page', async () => {
+    const { portal, session } = sessionFor();
+    await runOperation(listarAulas, session, { de: '2026-11-03', ate: '2026-11-06' });
+    expect(sentQuery(portal)).toEqual({
+      dtInicial: new Date(2026, 10, 3, 12).toISOString(),
+      dtFinal: new Date(2026, 10, 6, 12).toISOString(),
+      orderby: 'HORAINICIAL',
+      idContextoAluno: CONTEXT_ID,
+    });
+  });
+
+  it('defaults to today, or to the one day given', async () => {
+    today('2026-11-04');
+    const { portal, session } = sessionFor({ SPlanoAula: [] });
+    await expect(runOperation(listarAulas, session, {})).resolves.toMatchObject({ de: '2026-11-04', ate: '2026-11-04', aulas: [] });
+    expect(sentQuery(portal).dtInicial).toBe(sentQuery(portal).dtFinal);
+    await expect(runOperation(listarAulas, session, { ate: '2026-11-10' })).resolves.toMatchObject({ de: '2026-11-10', ate: '2026-11-10' });
+  });
+
+  it('filters by idTurmaDisc here, and takes a missing file list as none', async () => {
+    const { portal, session } = sessionFor({ SPlanoAula: rows });
+    const result = await runOperation(listarAulas, session, { de: '2026-11-03', idTurmaDisc: 48230 });
+    expect(result.aulas.map((a) => a.idPlanoAula)).toEqual([7311800]);
+    expect(sentQuery(portal)).not.toHaveProperty('idTurmaDisc');
+  });
+
+  it('rejects a window that ends before it starts, or is longer than 31 days', async () => {
+    const { session } = sessionFor();
+    await expect(runOperation(listarAulas, session, { de: '2026-11-04', ate: '2026-11-03' })).rejects.toMatchObject({
+      issues: [expect.objectContaining({ path: ['de'] })],
+    });
+    await expect(runOperation(listarAulas, session, { de: '2026-10-01', ate: '2026-10-31' })).resolves.toBeDefined();
+    await expect(runOperation(listarAulas, session, { de: '2026-10-01', ate: '2026-11-01' })).rejects.toMatchObject({
+      issues: [expect.objectContaining({ path: ['ate'] })],
+    });
   });
 });

@@ -60,6 +60,15 @@ const portal = createFakePortal({
       SDescDisc: [],
       SQuadroHorarioAulaOnline: [],
     }),
+    // The fake ignores dtInicial/dtFinal and always answers with these lessons.
+    'TOTVSEducacional/v1/planoaulas/aulas': academic({
+      SPlanoAula: [
+        { IDHORARIOTURMA: 90121, DIASEMANA: 2, HORAINICIAL: '18:30', HORAFINAL: '19:20', PREDIO: 'PRD1 - Prédio 1', BLOCO: '1 - Bloco A', SALA: 'LAB3 - Laboratório 3', DATA: '2026-11-09T00:00:00', AULA: 23, IDTURMADISC: 48213, CONTEUDO: 'Rotas e middlewares no servidor.', CONTEUDOEFETIVO: 'Rotas, middlewares e tratamento de erros.', LICAOCASA: 'Terminar o exercício 3.', CODTURMA: 'DS-2026-A', CODDISC: 'PW2', NOMEDISC: 'Programação Web II', CODSUBTURMA: '', CONFIRMADO: 'N', IDPLANOAULA: 7310460, TIPOAULA: 'P', URLAULAONLINE: null, OBSERVACAO: null },
+        { IDHORARIOTURMA: 90122, DIASEMANA: 2, HORAINICIAL: '19:20', HORAFINAL: '20:10', PREDIO: 'PRD1 - Prédio 1', BLOCO: '1 - Bloco A', SALA: 'LAB3 - Laboratório 3', DATA: '2026-11-09T00:00:00', AULA: 24, IDTURMADISC: 48213, CONTEUDO: 'Rotas e middlewares no servidor.', CONTEUDOEFETIVO: null, LICAOCASA: '', CODTURMA: 'DS-2026-A', CODDISC: 'PW2', NOMEDISC: 'Programação Web II', CODSUBTURMA: '', CONFIRMADO: 'N', IDPLANOAULA: 7310461, TIPOAULA: 'P', URLAULAONLINE: null, OBSERVACAO: null },
+        { IDHORARIOTURMA: 90140, DIASEMANA: 4, HORAINICIAL: '18:30', HORAFINAL: '19:20', PREDIO: null, BLOCO: null, SALA: null, DATA: '2026-11-11T00:00:00', AULA: 12, IDTURMADISC: 48230, CONTEUDO: 'Normalização: 1FN a 3FN.', CONTEUDOEFETIVO: null, LICAOCASA: null, CODTURMA: 'DS-2026-A', CODDISC: 'BD1', NOMEDISC: 'Banco de Dados I', CODSUBTURMA: 'SUBTURMA C', CONFIRMADO: 'N', IDPLANOAULA: 7311807, TIPOAULA: 'T', URLAULAONLINE: null, OBSERVACAO: null },
+      ],
+      SPLANOAULAARQUIVO: [],
+    }),
   },
 });
 

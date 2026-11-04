@@ -330,3 +330,28 @@ describe('errors', () => {
     expect(logs.some((line) => line.includes('detalhe interno'))).toBe(true);
   });
 });
+
+describe('endpoints end to end', () => {
+  it('GET /aulas: lessons of a window, with the context ID the portal needs', async () => {
+    const lesson = {
+      IDHORARIOTURMA: 90121, DIASEMANA: 3, HORAINICIAL: '18:30', HORAFINAL: '19:20', PREDIO: null, BLOCO: null, SALA: null,
+      DATA: '2026-11-03T00:00:00', AULA: 21, IDTURMADISC: 48213, CONTEUDO: 'Rotas.', CONTEUDOEFETIVO: null, LICAOCASA: null,
+      CODTURMA: 'DS-2026-A', CODDISC: 'PW2', NOMEDISC: 'Programação Web II', CODSUBTURMA: '', CONFIRMADO: 'N',
+      IDPLANOAULA: 7310452, TIPOAULA: 'T', URLAULAONLINE: null, OBSERVACAO: null,
+    };
+    const { authed, portal } = setup({
+      routes: { 'TOTVSEducacional/v1/planoaulas/aulas': academicRoute(CONTEXT_ID, { SPlanoAula: [lesson], SPLANOAULAARQUIVO: [] }) },
+    });
+
+    const res = await authed('/aulas?de=2026-11-03&ate=2026-11-06');
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { aulas: Record<string, unknown>[] };
+    expect(body).toMatchObject({ periodo: '2026S2', de: '2026-11-03', ate: '2026-11-06' });
+    expect(body.aulas).toEqual([expect.objectContaining({ idPlanoAula: 7310452, dia: 'terca', tipo: { codigo: 'T', descricao: 'Aula teórica' } })]);
+    expect(portal.requests.at(-1)!.url.searchParams.get('idContextoAluno')).toBe(CONTEXT_ID);
+
+    const tooLong = await authed('/aulas?de=2026-01-01&ate=2026-03-01');
+    expect(tooLong.status).toBe(400);
+    expect(await tooLong.json()).toMatchObject({ erro: 'parametro_invalido', detalhes: [{ campo: 'ate' }] });
+  });
+});

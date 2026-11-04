@@ -217,6 +217,16 @@ Page `#/aulas` loads its view (`aulas-lista.view.html`) on navigation. Its own d
 
 **`idContextoAluno`:** the frontend takes this from the cookie `EduContextoAlunoResponsavelAPI`, which holds the active enrollment context (the same value as `IDCONTEXTOALUNO` in `Contexto`). The frontend reads the cookie (decoded) and applies `encodeURI` to it. Keep the same steps. The encoding applies only to this query parameter. The cookie itself must hold the raw value (section 2.4). The value is opaque, so do not log it.
 
+**Wire format of `idContextoAluno` (from the page code, `plano-aula.factory.js` and `totvs-desktop-contexto-curso.factory.js`).** `getIdContextoEncode()` returns `encodeURI(Cookies.get('EduContextoAlunoResponsavelAPI'))`, and Angular's query serializer then URL-encodes that value again. This account's IDs contain backslashes, which `encodeURI` turns into `%5C`, so the URL carries `%255C`. The API sends the same: `encodeURI(id)`, then URL-encoded as a query value. Checked from a script on 2026-11-03: the portal answered with data.
+
+**Checked from a script (2026-11-03), shapes and counts only:**
+
+- `dtInicial` and `dtFinal` are `Date` objects in the page, so they go out as ISO instants (`toISOString()`). The portal reads them as dates in its own time zone: 23:00 local on a Monday (02:00Z Tuesday) returned that Monday's lessons (none, a holiday), not Tuesday's. The API sends noon local time of each day.
+- A window works, not only one day: Tuesday to Friday returned 26 lessons on 4 days, and October 1 to 31 returned 160 on 22 days. The API allows up to 31 days.
+- `periodo` works here too: the context cookie and `idContextoAluno` of 2026S1 returned that period's lessons for a day in April; with the session's 2026S2, the same day was empty.
+- `data` has `SPlanoAula[]` and `SPLANOAULAARQUIVO[]` (empty here). `SPlanoAula` field types: `IDPLANOAULA`, `IDTURMADISC`, `IDHORARIOTURMA`, `AULA`, `CODHOR`, `IDPERLET`, `CODCOLIGADA` (integers), `DIASEMANA` (integer, `1` Sunday … `7` Saturday, matching the date), `DATA` (`YYYY-MM-DDTHH:mm:ss`), `HORAINICIAL`, `HORAFINAL` (`HH:mm`), `CODDISC`, `NOMEDISC`, `CODTURMA` (strings), `CODSUBTURMA` (empty string in every row, even for a class whose `DisciplinasAlunoPeriodoLetivo` row has a subclass), `CONFIRMADO` (`N` in every row), `TIPOAULA` (`P`, `T`, empty or null), `FREQUENCIADISPWEB` (`"1"` or `"0"`), `CONTEUDO`, `CONTEUDOEFETIVO` (plain text, no HTML, sometimes with line breaks; 256 characters at most here, the same in `PlanoAula/Aula`), `LICAOCASA`, `URLAULAONLINE` (empty or null), `PREDIO`, `BLOCO`, `SALA` (`"code - name"` text or null, with `CODPREDIO`, `CODBLOCO`, `CODSALA`), and `TIPOFALTA`, `CODFILIAL`, `CODPROF`, `LOCACAO`, `DATAEFETIVA`, `REPOSICAO`, `SUBSTITUTO`, `PAGAMENTOPROF`, `HORAINICIALREALIZADO`, `HORAFINALREALIZADO`, `OBSERVACAO` (null in every row).
+- The page names `TIPOAULA` `T` aula teórica, `P` aula prática, `L` laboratório, `E` estágio, `X` extensão. It labels `CONTEUDO` "Conteúdo previsto", `CONTEUDOEFETIVO` "Conteúdo efetivo" and `LICAOCASA` "Lição de casa", and lists the files of each lesson from `SPLANOAULAARQUIVO` by `IDPLANOAULA` (`ARQUIVO`, `TAMANHO` in KB, and `IDMATERIALSEC` and `PATHARQUIVO` for `Material/Download`).
+
 Page `#/plano-aula` calls `v1/planoaulas/aulas` for the selected day.
 
 ### 4.9 Files and materials (verified)
@@ -304,6 +314,7 @@ The client does not assume an answer to these. Each one notes what the code does
 5. **Assessment values in `NotaEtapa`.** The value format (decimal comma or point, concepts) is not recorded. The API returns the raw text as `valor`, and `nota` only when the text is a plain number.
 6. **Field types not recorded** (`CODSTATUS`, `CODTURMA`, `IDPERLET` outside `Periodos`, `DTINICIO` format). The schemas in `src/core/schemas.ts` accept string or number and normalize.
 7. ~~**`Aluno/Falta/Aula` window bounds.**~~ Resolved 2026-10-29: the portal compares dates only. A window of noon to noon on one day returned that day's absences. `/faltas/aulas` still sends the start of `de` and the end of `ate` in local time. Still not recorded: values of `JUSTIFICADAPERSONALIZADO` and `ABONAFALTAPERSONALIZADO` other than `Não` and empty. The API passes their text on as is.
+8. **Lesson files (`SPLANOAULAARQUIVO`).** Always empty so far, so the item types are not recorded. `/aulas` reads the fields the page uses, all optional.
 
 The first run against the real portal (`npm run try -- notas`) answers items 1 to 6. Update this section with what it shows.
 

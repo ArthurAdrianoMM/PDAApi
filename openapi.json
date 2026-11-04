@@ -2107,6 +2107,552 @@
           "TOTVSEducacional/QuadroHorarioAluno"
         ]
       }
+    },
+    "/aulas": {
+      "get": {
+        "operationId": "listarAulas",
+        "tags": [
+          "Rotina"
+        ],
+        "summary": "Aulas por dia",
+        "description": "Lista as aulas do plano de aulas num dia ou numa janela de dias, de todas as disciplinas: horário, conteúdo previsto e efetivo, lição de casa e local. Sem datas, traz as aulas de hoje, como a página \"Plano de aula\" do portal. Os itens vêm em ordem de data e horário.\n\n> [!NOTE]\n> **Datas**\n>\n> `de` e `ate` são dias inteiros. Sem nenhum dos dois, a janela é hoje; com só um, é aquele dia. Uma chamada cobre até 31 dias. `idTurmaDisc` filtra aqui, depois da resposta, como a página do portal faz.\n\n> [!NOTE]\n> **Feriados e dias sem aula**\n>\n> Um dia sem aula no plano, como um feriado, simplesmente não aparece na lista.\n\n> [!NOTE]\n> **Uma aula em detalhe**\n>\n> `idPlanoAula` e `idTurmaDisc` abrem a aula em `/disciplinas/{idTurmaDisc}/aulas/{idPlanoAula}`.\n\n> [!NOTE]\n> **De onde vêm os dados**\n>\n> O servidor local chama `TOTVSEducacional/v1/planoaulas/aulas` no portal. A resposta vai do portal para o seu computador e para mais nenhum lugar.",
+        "parameters": [
+          {
+            "name": "de",
+            "in": "query",
+            "required": false,
+            "description": "Primeiro dia (AAAA-MM-DD). Padrão: `ate`, ou hoje.",
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+            }
+          },
+          {
+            "name": "ate",
+            "in": "query",
+            "required": false,
+            "description": "Último dia (AAAA-MM-DD). Padrão: `de`.",
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+            }
+          },
+          {
+            "name": "idTurmaDisc",
+            "in": "query",
+            "required": false,
+            "description": "Só as aulas desta disciplina.",
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          },
+          {
+            "name": "periodo",
+            "in": "query",
+            "required": false,
+            "description": "Código do período, como em `/periodos` (ex.: `2026S1`). Padrão: o período da matrícula da sessão.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Aulas por dia",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "periodo": {
+                      "type": "string",
+                      "description": "Código do período respondido (ex.: `2026S2`)."
+                    },
+                    "de": {
+                      "type": "string",
+                      "format": "date",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                      "description": "Primeiro dia da janela usada."
+                    },
+                    "ate": {
+                      "type": "string",
+                      "format": "date",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                      "description": "Último dia da janela usada."
+                    },
+                    "aulas": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "idPlanoAula": {
+                            "type": "integer",
+                            "description": "ID da aula no plano de aulas. Combina com `idPlanoAula` de `/faltas/aulas`."
+                          },
+                          "idTurmaDisc": {
+                            "type": "integer",
+                            "description": "ID da turma da disciplina. Combina com `/disciplinas`."
+                          },
+                          "idHorarioTurma": {
+                            "description": "ID do horário na turma. Combina com `/horario`.",
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "codigo": {
+                            "type": "string",
+                            "description": "Código da disciplina (`CODDISC`)."
+                          },
+                          "disciplina": {
+                            "type": "string",
+                            "description": "Nome da disciplina."
+                          },
+                          "turma": {
+                            "type": "string",
+                            "description": "Código da turma (`CODTURMA`)."
+                          },
+                          "subturma": {
+                            "description": "Código da subturma, ou `null` quando não há.",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "data": {
+                            "type": "string",
+                            "format": "date",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                            "description": "Dia da aula (AAAA-MM-DD)."
+                          },
+                          "diaSemana": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 7,
+                            "description": "Dia da semana na numeração do portal: `1` é domingo… `7` sábado."
+                          },
+                          "dia": {
+                            "type": "string",
+                            "enum": [
+                              "domingo",
+                              "segunda",
+                              "terca",
+                              "quarta",
+                              "quinta",
+                              "sexta",
+                              "sabado"
+                            ],
+                            "description": "O mesmo dia por extenso, sem acento."
+                          },
+                          "aula": {
+                            "description": "Número da aula na disciplina (`AULA`).",
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "inicio": {
+                            "type": "string",
+                            "description": "Hora de início, `HH:mm`."
+                          },
+                          "fim": {
+                            "type": "string",
+                            "description": "Hora de fim, `HH:mm`."
+                          },
+                          "tipo": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "codigo": {
+                                    "type": "string",
+                                    "description": "`TIPOAULA` do portal: `T`, `P`, `L`, `E` ou `X`."
+                                  },
+                                  "descricao": {
+                                    "description": "O texto da página do portal para o código, ou `null` se o código for outro.",
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "codigo",
+                                  "descricao"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Tipo da aula, ou `null` quando o portal não informa."
+                          },
+                          "conteudoPrevisto": {
+                            "description": "\"Conteúdo previsto\" no portal (`CONTEUDO`). Texto puro.",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "conteudoEfetivo": {
+                            "description": "\"Conteúdo efetivo\", o que foi dado (`CONTEUDOEFETIVO`). Texto puro.",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "licaoDeCasa": {
+                            "description": "\"Lição de casa\" (`LICAOCASA`).",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "observacao": {
+                            "description": "Observação do professor (`OBSERVACAO`).",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "confirmada": {
+                            "description": "`CONFIRMADO` do portal: `S` é `true`, `N` é `false`; outro valor, `null`.",
+                            "type": [
+                              "boolean",
+                              "null"
+                            ]
+                          },
+                          "local": {
+                            "type": "object",
+                            "properties": {
+                              "predio": {
+                                "description": "Prédio, como o portal envia.",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "bloco": {
+                                "description": "Bloco, como o portal envia.",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "sala": {
+                                "description": "Sala, como o portal envia.",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "predio",
+                              "bloco",
+                              "sala"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "urlAulaOnline": {
+                            "description": "Link da aula online, quando há.",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "arquivos": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "idMaterial": {
+                                  "description": "ID do material (`IDMATERIALSEC`).",
+                                  "type": [
+                                    "integer",
+                                    "null"
+                                  ]
+                                },
+                                "nome": {
+                                  "description": "Nome do arquivo.",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "tamanhoKb": {
+                                  "description": "Tamanho em KB, como a página do portal mostra.",
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "idMaterial",
+                                "nome",
+                                "tamanhoKb"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "description": "Arquivos que o professor anexou à aula."
+                          }
+                        },
+                        "required": [
+                          "idPlanoAula",
+                          "idTurmaDisc",
+                          "idHorarioTurma",
+                          "codigo",
+                          "disciplina",
+                          "turma",
+                          "subturma",
+                          "data",
+                          "diaSemana",
+                          "dia",
+                          "aula",
+                          "inicio",
+                          "fim",
+                          "tipo",
+                          "conteudoPrevisto",
+                          "conteudoEfetivo",
+                          "licaoDeCasa",
+                          "observacao",
+                          "confirmada",
+                          "local",
+                          "urlAulaOnline",
+                          "arquivos"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "periodo",
+                    "de",
+                    "ate",
+                    "aulas"
+                  ],
+                  "additionalProperties": false
+                },
+                "example": {
+                  "periodo": "2026S2",
+                  "de": "2026-11-03",
+                  "ate": "2026-11-03",
+                  "aulas": [
+                    {
+                      "idPlanoAula": 7310452,
+                      "idTurmaDisc": 48213,
+                      "idHorarioTurma": 90121,
+                      "codigo": "PW2",
+                      "disciplina": "Programação Web II",
+                      "turma": "DS-2026-A",
+                      "subturma": null,
+                      "data": "2026-11-03",
+                      "diaSemana": 3,
+                      "dia": "terca",
+                      "aula": 21,
+                      "inicio": "18:30",
+                      "fim": "19:20",
+                      "tipo": {
+                        "codigo": "P",
+                        "descricao": "Aula prática"
+                      },
+                      "conteudoPrevisto": "Rotas e middlewares no servidor.",
+                      "conteudoEfetivo": "Rotas, middlewares e tratamento de erros.",
+                      "licaoDeCasa": null,
+                      "observacao": null,
+                      "confirmada": false,
+                      "local": {
+                        "predio": "PRD1 - Prédio 1",
+                        "bloco": "1 - Bloco A",
+                        "sala": "LAB3 - Laboratório 3"
+                      },
+                      "urlAulaOnline": null,
+                      "arquivos": []
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`parametro_invalido`: Um parâmetro está faltando, sobrando ou com o tipo errado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "parametro_invalido": {
+                    "summary": "parametro_invalido",
+                    "value": {
+                      "erro": "parametro_invalido",
+                      "mensagem": "Um parâmetro está faltando, sobrando ou com o tipo errado."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`token_invalido`: O token local está ausente ou errado. Entre de novo pela documentação (/docs/) para receber um novo.\n\n`login_falhou`: O portal não completou o login. Confira o usuário e a senha.\n\n`sessao_expirada`: O portal recusou a sessão, e um novo login não resolveu.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "token_invalido": {
+                    "summary": "token_invalido",
+                    "value": {
+                      "erro": "token_invalido",
+                      "mensagem": "O token local está ausente ou errado. Entre de novo pela documentação (/docs/) para receber um novo."
+                    }
+                  },
+                  "login_falhou": {
+                    "summary": "login_falhou",
+                    "value": {
+                      "erro": "login_falhou",
+                      "mensagem": "O portal não completou o login. Confira o usuário e a senha."
+                    }
+                  },
+                  "sessao_expirada": {
+                    "summary": "sessao_expirada",
+                    "value": {
+                      "erro": "sessao_expirada",
+                      "mensagem": "O portal recusou a sessão, e um novo login não resolveu."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`portal_recusou`: O portal negou o acesso (HTTP 403). A API repassa a recusa e não tenta outro caminho.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "portal_recusou": {
+                    "summary": "portal_recusou",
+                    "value": {
+                      "erro": "portal_recusou",
+                      "mensagem": "O portal negou o acesso (HTTP 403). A API repassa a recusa e não tenta outro caminho."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`periodo_inexistente`: A conta não tem matrícula no período pedido. Os períodos estão em /periodos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "periodo_inexistente": {
+                    "summary": "periodo_inexistente",
+                    "value": {
+                      "erro": "periodo_inexistente",
+                      "mensagem": "A conta não tem matrícula no período pedido. Os períodos estão em /periodos."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`erro_interno`: Erro no servidor local. Veja o terminal onde ele está rodando.\n\n`configuracao_invalida`: A configuração não combina com o que o portal retornou (alias ou período).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "erro_interno": {
+                    "summary": "erro_interno",
+                    "value": {
+                      "erro": "erro_interno",
+                      "mensagem": "Erro no servidor local. Veja o terminal onde ele está rodando."
+                    }
+                  },
+                  "configuracao_invalida": {
+                    "summary": "configuracao_invalida",
+                    "value": {
+                      "erro": "configuracao_invalida",
+                      "mensagem": "A configuração não combina com o que o portal retornou (alias ou período)."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`sem_contexto`: O portal pediu um contexto de matrícula que a sessão não tem.\n\n`erro_do_portal`: O portal retornou um erro dentro da resposta.\n\n`resposta_inesperada`: A resposta do portal não tem o formato documentado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "sem_contexto": {
+                    "summary": "sem_contexto",
+                    "value": {
+                      "erro": "sem_contexto",
+                      "mensagem": "O portal pediu um contexto de matrícula que a sessão não tem."
+                    }
+                  },
+                  "erro_do_portal": {
+                    "summary": "erro_do_portal",
+                    "value": {
+                      "erro": "erro_do_portal",
+                      "mensagem": "O portal retornou um erro dentro da resposta."
+                    }
+                  },
+                  "resposta_inesperada": {
+                    "summary": "resposta_inesperada",
+                    "value": {
+                      "erro": "resposta_inesperada",
+                      "mensagem": "A resposta do portal não tem o formato documentado."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "`portal_indisponivel`: Não foi possível falar com o portal: sem conexão, tempo esgotado ou erro 5xx.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "portal_indisponivel": {
+                    "summary": "portal_indisponivel",
+                    "value": {
+                      "erro": "portal_indisponivel",
+                      "mensagem": "Não foi possível falar com o portal: sem conexão, tempo esgotado ou erro 5xx."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-upstream": [
+          "TOTVSEducacional/v1/planoaulas/aulas"
+        ]
+      }
     }
   },
   "components": {

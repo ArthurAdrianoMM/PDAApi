@@ -39,7 +39,8 @@ export interface RequestOptions {
   /**
    * A query parameter that carries the enrollment's context ID, for the few
    * endpoints that take it in the URL as well (ENDPOINTS.md 4.8). The ID stays
-   * inside the session; the caller only names the parameter.
+   * inside the session; the caller only names the parameter. It is sent as the
+   * page sends it: `encodeURI` first, then URL-encoded as a query value.
    */
   contextParam?: string;
 }
@@ -107,7 +108,8 @@ export class PortalSession {
   ): Promise<z.output<S>> {
     return this.#withSession(async () => {
       const record = this.#record(options.periodo);
-      const fullQuery = options.contextParam ? { ...query, [options.contextParam]: record.IDCONTEXTOALUNO } : query;
+      // The page sends `encodeURI(id)`, which its query serializer then encodes again (ENDPOINTS.md 4.8).
+      const fullQuery = options.contextParam ? { ...query, [options.contextParam]: encodeURI(record.IDCONTEXTOALUNO) } : query;
       const res = await this.#http.request({
         method: 'GET',
         url: apiUrl(this.config.baseUrl, path, fullQuery),
