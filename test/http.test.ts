@@ -17,6 +17,7 @@ import {
   type FakePortalOptions,
 } from './support/fake-portal.js';
 import { AULAS_DISCIPLINA, PLANO_AULA } from './fixtures/aulas-disciplina.js';
+import { CALENDARIO } from './fixtures/calendario.js';
 import { GRADE_CURRICULAR } from './fixtures/grade-curricular.js';
 
 const TOKEN = 'token-de-teste';
@@ -399,5 +400,16 @@ describe('endpoints end to end', () => {
     const otherClass = await authed('/disciplinas/1/aulas');
     expect(otherClass.status).toBe(404);
     expect(await otherClass.json()).toMatchObject({ erro: 'item_inexistente' });
+  });
+
+  it('GET /calendario: a window of the whole calendar, one portal call', async () => {
+    const { authed, portal } = setup({ routes: { 'TOTVSEducacional/Aluno/CalendarioAluno': academicRoute(CONTEXT_ID, CALENDARIO) } });
+    const res = await authed('/calendario?de=2026-11-03&ate=2026-11-03&tipo=aula');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ de: '2026-11-03', ate: '2026-11-03', eventos: [{ id: 0 }, { id: 1 }] });
+    expect(portal.paths().filter((p) => p.endsWith('CalendarioAluno'))).toHaveLength(1);
+
+    const unknown = await authed('/calendario?periodo=2026S1');
+    expect(unknown.status).toBe(400);
   });
 });

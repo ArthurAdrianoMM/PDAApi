@@ -8,6 +8,7 @@
 import { serve } from '@hono/node-server';
 import { createApp } from '../src/http/app.js';
 import { AULAS_DISCIPLINA, PLANO_AULA } from '../test/fixtures/aulas-disciplina.js';
+import { CALENDARIO } from '../test/fixtures/calendario.js';
 import { GRADE_CURRICULAR } from '../test/fixtures/grade-curricular.js';
 import { CONTEXTS, ORIGIN, PASSWORD, USER, contextRoute, createFakePortal, fakeSession } from '../test/support/fake-portal.js';
 
@@ -63,6 +64,7 @@ const portal = createFakePortal({
       SQuadroHorarioAulaOnline: [],
     }),
     'TOTVSEducacional/GradeCurricular/EnsinoSuperior': academic(GRADE_CURRICULAR),
+    'TOTVSEducacional/Aluno/CalendarioAluno': academic(CALENDARIO),
     // The fake ignores the window and the lesson asked for.
     'TOTVSEducacional/AulasDisciplina/48213': academic(AULAS_DISCIPLINA),
     'TOTVSEducacional/AulasDisciplina/48230': academic([]),

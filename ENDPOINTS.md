@@ -205,6 +205,14 @@ Pages: `#/grade-curricular` calls `Periodos`, `GradeCurricular/EnsinoSuperior`, 
 |---|---|---|---|
 | `TOTVSEducacional/Aluno/CalendarioAluno` | yes | `data.APPOINTMENTS[]` (1458 items for this student). Fields: `ID` (number), `EVENTTYPE` (number), `RECURRENCEINFO` (string), `STARTTIME`, `ENDTIME` (ISO strings), `SUBJECT`, `DESCRIPTION`, `ALLDAY` (boolean), `LABEL`, `IDTURMADISC` (number, class), `IDPLANOAULA` (number, lesson), `CODETAPA`, `CODPROVA`, `IDOFERTA` (null here) | One call returns the whole calendar. No date parameter is sent. Expect a large response. Use `IDPLANOAULA` and `IDTURMADISC` to link an appointment to a lesson or class. |
 
+**`CalendarioAluno` in detail** (from the page's code, `calendario-list.controller.js`, and a run from a script on 2026-11-03, shapes and codes only):
+
+- 1206 appointments this time (1458 in the first capture), from 2025-08 to 2026-12, for 13 classes: more than one period. The same answer came back with the context cookie of 2026S2, 2026S1 and 2023S1, so the calendar does not depend on the enrollment.
+- Types: `ID` (integer, unique, 0 to n−1), `EVENTTYPE` (`1` in every row), `LABEL` (digits as text), `STARTTIME`, `ENDTIME` (`YYYY-MM-DDTHH:mm:ss`, no zone; the page's scheduler reads them as UTC so they show as written), `ALLDAY` (boolean, `false` in every row), `SUBJECT`, `DESCRIPTION` (text; for lessons, the class and the place), `IDTURMADISC`, `IDPLANOAULA` (integers), `CODETAPA`, `CODPROVA`, `IDOFERTA` (null in every row).
+- `LABEL` is the event type of the page's legend (`eduEnumsConsts.TipoEventoCalendario`): `0` matrícula presencial, `1` matrícula pelo portal, `2` limite de trancamento, `3` avaliações, `4` atividades inscritas, `5` aula, `6` entrega de trabalho, `7` lição de casa. Every row was `5`. The page opens a lesson summary for `IDPLANOAULA`, an assessment for `CODETAPA`/`CODPROVA`, and an activity for `IDOFERTA`.
+- `RECURRENCEINFO` is an RRULE-like text with spaces and unpadded numbers, `FREQ = WEEKLY ; WKST = MO; UNTIL = 2025-8-05T09:50:0`, which the page passes to the scheduler as `recurrenceRule`. In every row `WKST` was the event's weekday and `UNTIL` was the event's own `ENDTIME`, so each appointment happens once.
+- For a class with subclasses, only the student's subclass's lessons are listed: one week matched `/aulas` lesson for lesson.
+
 Page `#/calendario` calls `Aluno/CalendarioAluno`, `Periodos`, `DisciplinasAlunoPeriodoLetivo?mostraApenasDiscEmCurso=false`, and `Widget/DadosWidgets?idFuncionalidade=3`.
 
 ### 4.7 Classes and lessons (verified)

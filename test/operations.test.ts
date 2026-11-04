@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TAGS, operations, runOperation, type Operation } from '../src/operations/index.js';
 import { listarAulas } from '../src/operations/aulas.js';
 import { listarAulasDaDisciplina, obterAula } from '../src/operations/aulas-disciplina.js';
+import { listarEventosDoCalendario } from '../src/operations/calendario.js';
 import { listarDisciplinas } from '../src/operations/disciplinas.js';
 import { obterHorario } from '../src/operations/horario.js';
 import { obterNotas } from '../src/operations/notas.js';
@@ -10,6 +11,7 @@ import { listarFaltasPorAula } from '../src/operations/faltas-aulas.js';
 import { obterGradeCurricular } from '../src/operations/grade-curricular.js';
 import { listarPeriodos } from '../src/operations/periodos.js';
 import { AULAS_DISCIPLINA, PLANO_AULA } from './fixtures/aulas-disciplina.js';
+import { CALENDARIO } from './fixtures/calendario.js';
 import { GRADE_CURRICULAR } from './fixtures/grade-curricular.js';
 import { CONTEXT_COOKIE, academicRoute, contextRoute, createTestSession, type DataRoute } from './support/fake-portal.js';
 
@@ -793,5 +795,63 @@ describe('listarAulasDaDisciplina and obterAula', () => {
   it('answers item_inexistente when the portal finds no such lesson', async () => {
     const { session } = sessionFor();
     await expect(runOperation(obterAula, session, { idTurmaDisc: 48213, idPlanoAula: 1 })).rejects.toMatchObject({ code: 'item_inexistente' });
+  });
+});
+
+describe('listarEventosDoCalendario', () => {
+  const today = (date: string) => vi.useFakeTimers({ toFake: ['Date'] }).setSystemTime(new Date(`${date}T10:00:00`));
+  afterEach(() => vi.useRealTimers());
+  const sessionFor = () => sessionWith({ 'TOTVSEducacional/Aluno/CalendarioAluno': academicRoute(CONTEXT_ID, CALENDARIO) });
+
+  it('keeps the events that touch the window, in start order', async () => {
+    const { portal, session } = sessionFor();
+    const result = await runOperation(listarEventosDoCalendario, session, { de: '2026-11-03', ate: '2026-11-12' });
+
+    expect(result).toMatchObject({ de: '2026-11-03', ate: '2026-11-12' });
+    expect(result.eventos.map((e) => [e.id, e.tipo.nome, e.inicio])).toEqual([
+      [0, 'aula', '2026-11-03T18:30:00'],
+      [1, 'aula', '2026-11-03T19:20:00'],
+      [5, 'licao_de_casa', '2026-10-01T08:00:00'],
+      [2, 'aula', '2026-11-10T18:30:00'],
+      [3, 'avaliacao', '2026-11-12T00:00:00'],
+    ].sort((a, b) => String(a[2]).localeCompare(String(b[2]))));
+    expect(result.eventos.find((e) => e.id === 0)).toEqual({
+      id: 0,
+      tipo: { codigo: 5, nome: 'aula', descricao: 'Aula' },
+      titulo: 'Aula: Programação Web II (DS-2026-A)',
+      descricao: 'Prédio: PRD1 - Prédio 1 Bloco: 1 - Bloco A Sala: LAB3 - Laboratório 3',
+      inicio: '2026-11-03T18:30:00',
+      fim: '2026-11-03T19:20:00',
+      diaInteiro: false,
+      idTurmaDisc: 48213,
+      idPlanoAula: 7310000,
+      codEtapa: null,
+      codProva: null,
+      idOferta: null,
+      recorrencia: null,
+    });
+    expect(result.eventos.find((e) => e.id === 1)).toMatchObject({ descricao: null });
+    expect(result.eventos.find((e) => e.id === 3)).toMatchObject({ diaInteiro: true, codEtapa: 2, codProva: 1, recorrencia: null });
+    expect(result.eventos.find((e) => e.id === 5)!.recorrencia).toEqual({
+      regra: 'FREQ = WEEKLY ; WKST = TH; UNTIL = 2026-11-26T09:00:0',
+      ate: '2026-11-26T09:00:00',
+    });
+    expect(portal.requests.at(-1)!.url.search).toBe('');
+  });
+
+  it('filters by type and class, and keeps unknown types with a null name', async () => {
+    const { session } = sessionFor();
+    const aulas = await runOperation(listarEventosDoCalendario, session, { de: '2026-11-01', ate: '2026-12-31', tipo: 'aula', idTurmaDisc: 48213 });
+    expect(aulas.eventos.map((e) => e.id)).toEqual([0, 2]);
+    const todos = await runOperation(listarEventosDoCalendario, session, { de: '2026-12-01', ate: '2026-12-01' });
+    expect(todos.eventos.map((e) => e.tipo)).toEqual([{ codigo: 9, nome: null, descricao: null }]);
+    await expect(runOperation(listarEventosDoCalendario, session, { tipo: 'feriado' })).rejects.toMatchObject({ name: 'ZodError' });
+  });
+
+  it('defaults to the next 30 days, or the 30 days before ate', async () => {
+    today('2026-11-04');
+    const { session } = sessionFor();
+    await expect(runOperation(listarEventosDoCalendario, session, {})).resolves.toMatchObject({ de: '2026-11-04', ate: '2026-12-04' });
+    await expect(runOperation(listarEventosDoCalendario, session, { ate: '2026-11-30' })).resolves.toMatchObject({ de: '2026-10-31' });
   });
 });
