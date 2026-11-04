@@ -166,6 +166,15 @@ export function createFakePortal(options: FakePortalOptions = {}) {
  * missing context cookie → permission warning; any other value than the raw ID → 403.
  */
 export function academicRoute(expectedContextId: string, data: unknown): DataRoute {
+  return contextRoute({ [expectedContextId]: data });
+}
+
+/**
+ * Like `academicRoute`, for several enrollments: answers with the data of the
+ * enrollment whose raw context ID is in the cookie, as the portal does for
+ * each period (ENDPOINTS.md 2.4).
+ */
+export function contextRoute(dataByContextId: Record<string, unknown>): DataRoute {
   return (req) => {
     const value = cookiesOf(req).get(CONTEXT_COOKIE);
     if (value === undefined) {
@@ -173,8 +182,8 @@ export function academicRoute(expectedContextId: string, data: unknown): DataRou
         { type: 'warning', detail: 'Usuário sem permissão para acessar os dados acadêmicos do aluno' },
       ]);
     }
-    if (value !== expectedContextId) return new Response(null, { status: 403 });
-    return envelope(data);
+    if (!Object.hasOwn(dataByContextId, value)) return new Response(null, { status: 403 });
+    return envelope(dataByContextId[value]);
   };
 }
 

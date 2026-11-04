@@ -32,6 +32,8 @@ It prints the docs address. The page works without an account: every endpoint, s
 Documentação: http://127.0.0.1:4321/docs/
 ```
 
+Endpoints that answer for one enrollment (`/disciplinas`, `/notas`, `/faltas`, `/faltas/aulas`, `/horario`) use the most recent one, or the one given with `--period`. Pass `periodo` with a code from `/periodos` to ask about another, for example `/notas?periodo=2026S1`.
+
 From other tools, log in with `POST /sessao` (`{"usuario": "…", "senha": "…"}` as JSON) and send the returned token as `Authorization: Bearer <token>`. The docs page also has a "Copiar token" button. A new login, a logout (`DELETE /sessao`) or a restart invalidates the previous token.
 
 With `PORTAL_ALUNO_USER` and `PORTAL_ALUNO_PASSWORD` set, the server logs in at startup instead and prints a link that already carries the token:
@@ -80,6 +82,7 @@ npm run try -- notas
 npm run try -- listarDisciplinas '{"apenasEmCurso":true}'
 npm run try -- faltas/aulas '{"de":"2026-08-01"}'
 npm run try -- horario '{"incluirEncerrados":true}'
+npm run try -- notas '{"periodo":"2026S1"}'
 ```
 
 The output is your own data, so don't paste it anywhere public.
@@ -87,7 +90,7 @@ The output is your own data, so don't paste it anywhere public.
 Map a portal endpoint before building on it. The probe prints only field names, types, string formats and counts, never values. `--values` lists the distinct values of the fields you name, for codes and enums only:
 
 ```sh
-npm run probe -- TOTVSEducacional/Periodos
+npm run probe -- TOTVSEducacional/Periodos 'TOTVSEducacional/DisciplinasAlunoPeriodoLetivo?mostraApenasDiscEmCurso=false'
 npm run probe -- TOTVSEducacional/Aluno/CalendarioAluno --values EVENTTYPE,LABEL
 ```
 

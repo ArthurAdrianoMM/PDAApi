@@ -7,44 +7,46 @@
  */
 import { serve } from '@hono/node-server';
 import { createApp } from '../src/http/app.js';
-import { CONTEXTS, ORIGIN, PASSWORD, USER, academicRoute, createFakePortal, fakeSession } from '../test/support/fake-portal.js';
+import { CONTEXTS, ORIGIN, PASSWORD, USER, contextRoute, createFakePortal, fakeSession } from '../test/support/fake-portal.js';
 
 const PORT = 4321;
 const TOKEN = 'dev';
-const CONTEXT_ID = CONTEXTS[1]!.IDCONTEXTOALUNO;
+
+/** An academic route that answers the same for every enrollment, so `periodo` works in the docs. */
+const academic = (data: unknown) => contextRoute(Object.fromEntries(CONTEXTS.map((c) => [c.IDCONTEXTOALUNO, data])));
 
 const portal = createFakePortal({
   routes: {
-    'TOTVSEducacional/Periodos': academicRoute(CONTEXT_ID, [
+    'TOTVSEducacional/Periodos': academic([
       { CODPERLET: '2026S2', IDPERLET: 1042 },
       { CODPERLET: '2026S1', IDPERLET: 1017 },
       { CODPERLET: '2025S2', IDPERLET: 988 },
     ]),
-    'TOTVSEducacional/DisciplinasAlunoPeriodoLetivo': academicRoute(CONTEXT_ID, [
+    'TOTVSEducacional/DisciplinasAlunoPeriodoLetivo': academic([
       { IDTURMADISC: 48213, CODDISC: 'PW2', NOME: 'Programação Web II', CODTURMA: 'DS-2026-A', CODSUBTURMA: '', IDPERLET: 1042, CODSTATUS: 1, DESCRICAO: 'Cursando' },
       { IDTURMADISC: 48230, CODDISC: 'BD1', NOME: 'Banco de Dados I', CODTURMA: 'DS-2026-A', CODSUBTURMA: 'SUBTURMA C', IDPERLET: 1042, CODSTATUS: 1, DESCRICAO: 'Cursando' },
     ]),
-    'TOTVSEducacional/NotaEtapa': academicRoute(CONTEXT_ID, {
+    'TOTVSEducacional/NotaEtapa': academic({
       Notas: [
         { IDTURMADISC: 48213, CODDISC: 'PW2', DISCIPLINA: 'Programação Web II', CODTURMA: 'DS-2026-A', SITUACAO: 'Cursando', '1 - AV 1 / AV QT 1': '8,5', '2 - AV 2 / AV QT 2': null },
         { IDTURMADISC: 48230, CODDISC: 'BD1', DISCIPLINA: 'Banco de Dados I', CODTURMA: 'DS-2026-A', SITUACAO: 'Cursando', '1 - AV 1 / AV QT 1': '7', '2 - AV 2 / AV QT 2': 'A' },
       ],
     }),
-    'TOTVSEducacional/FaltaEtapa': academicRoute(CONTEXT_ID, {
+    'TOTVSEducacional/FaltaEtapa': academic({
       FaltasEtapa: [
         { Filial: 'Unidade Exemplo', CODTURMA: 'DS-2026-A', CODDISC: 'PW2', Disciplina: 'Programação Web II', 'Situação': 'Matriculado', '0 - Faltas': '2', PERCENTUAL: 2.78, IDTURMADISC: 48213, SITUACAOFALTAS: 1 },
         { Filial: 'Unidade Exemplo', CODTURMA: 'DS-2026-A', CODDISC: 'BD1', Disciplina: 'Banco de Dados I', 'Situação': 'Matriculado', '0 - Faltas': '1', PERCENTUAL: 1.39, IDTURMADISC: 48230, SITUACAOFALTAS: 1 },
       ],
     }),
     // The fake ignores dataDe/dataAte and always answers with these rows.
-    'TOTVSEducacional/Aluno/Falta/Aula': academicRoute(CONTEXT_ID, {
+    'TOTVSEducacional/Aluno/Falta/Aula': academic({
       SFREQUENCIAALUNO: [
         { CODCOLIGADA: 1, IDTURMADISC: 48213, IDPLANOAULA: 7310451, IDHORARIOTURMA: 912, AULA: 20, CODDISC: 'PW2', DISCIPLINA: 'Programação Web II', DATAFALTA: '2026-09-14T00:00:00', DATA: '2026-09-14T00:00:00', HORAINICIAL: '19:00', HORAFINAL: '19:50', JUSTIFICADAPERSONALIZADO: 'Não', ABONAFALTAPERSONALIZADO: '', MOTIVOPERSONALIZADO: null, COMPOETOTALFALTAS: null, PRESENCA: 'A', JUSTIFICADA: null, CODSUBTURMA: null, SITUACAO: 'Não justificada' },
         { CODCOLIGADA: 1, IDTURMADISC: 48213, IDPLANOAULA: 7310452, IDHORARIOTURMA: 912, AULA: 21, CODDISC: 'PW2', DISCIPLINA: 'Programação Web II', DATAFALTA: '2026-09-14T00:00:00', DATA: '2026-09-14T00:00:00', HORAINICIAL: '19:50', HORAFINAL: '20:40', JUSTIFICADAPERSONALIZADO: 'Não', ABONAFALTAPERSONALIZADO: '', MOTIVOPERSONALIZADO: null, COMPOETOTALFALTAS: null, PRESENCA: 'A', JUSTIFICADA: null, CODSUBTURMA: null, SITUACAO: 'Não justificada' },
         { CODCOLIGADA: 1, IDTURMADISC: 48230, IDPLANOAULA: 7311807, IDHORARIOTURMA: 915, AULA: 3, CODDISC: 'BD1', DISCIPLINA: 'Banco de Dados I', DATAFALTA: '2026-08-03T00:00:00', DATA: '2026-08-03T00:00:00', HORAINICIAL: '20:40', HORAFINAL: '21:30', JUSTIFICADAPERSONALIZADO: 'Não', ABONAFALTAPERSONALIZADO: '', MOTIVOPERSONALIZADO: null, COMPOETOTALFALTAS: null, PRESENCA: 'A', JUSTIFICADA: null, CODSUBTURMA: 'SUBTURMA C', SITUACAO: 'Não justificada' },
       ],
     }),
-    'TOTVSEducacional/QuadroHorarioAluno': academicRoute(CONTEXT_ID, {
+    'TOTVSEducacional/QuadroHorarioAluno': academic({
       SQuadroHorarioAluno: [],
       SHorarioAluno: [
         { DIASEMANA: '0', HORAINICIAL: '18:30', HORAFINAL: '19:20', IDTURMADISC: null, NOME: null, DATAINICIAL: null, DATAFINAL: null },

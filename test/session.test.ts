@@ -7,6 +7,7 @@ import {
   PASSWORD,
   USER,
   academicRoute,
+  contextRoute,
   createFakePortal,
   envelope,
   loginKey,
@@ -144,6 +145,52 @@ describe('requests with a session', () => {
     const call = portal.requests.at(-1)!;
     expect(portal.cookiesOf(call).get(CONTEXT_COOKIE)).toBe(LATEST_CONTEXT_ID);
     expect(call.headers.get('cookie')).toContain(`${CONTEXT_COOKIE}=${LATEST_CONTEXT_ID}`);
+  });
+
+  it('asks about another enrollment by sending its context cookie with that request only', async () => {
+    const { portal, session } = setup({
+      routes: { 'TOTVSEducacional/NotaEtapa': contextRoute({ [LATEST_CONTEXT_ID]: { Notas: [] }, 'ctx+A/1==': { Notas: [1] } }) },
+    });
+    await expect(session.getData('TOTVSEducacional/NotaEtapa', {}, z.unknown(), { periodo: '2026S1' })).resolves.toEqual({ Notas: [1] });
+    await expect(session.getData('TOTVSEducacional/NotaEtapa', {}, z.unknown())).resolves.toEqual({ Notas: [] });
+
+    const [other = '', own = ''] = portal.requests.slice(-2).map((r) => r.headers.get('cookie') ?? '');
+    expect(other.match(new RegExp(`${CONTEXT_COOKIE}=`, 'g'))).toHaveLength(1);
+    expect(other).toContain(`${CONTEXT_COOKIE}=ctx+A/1==`);
+    expect(other).toContain('.ASPXAUTH=');
+    expect(own).toContain(`${CONTEXT_COOKIE}=${LATEST_CONTEXT_ID}`);
+  });
+
+  it('keeps concurrent requests for different enrollments apart', async () => {
+    const { session } = setup({
+      routes: { 'TOTVSEducacional/NotaEtapa': contextRoute({ [LATEST_CONTEXT_ID]: 'S2', 'ctx+A/1==': 'S1', 'ctx+C/3==': 'S0' }) },
+    });
+    const get = (periodo?: string) => session.getData('TOTVSEducacional/NotaEtapa', {}, z.string(), { periodo });
+    await expect(Promise.all([get('2026S1'), get(), get('2025S2'), get()])).resolves.toEqual(['S1', 'S2', 'S0', 'S2']);
+  });
+
+  it('reports a period the account has no enrollment in, without asking the portal', async () => {
+    const { portal, session } = setup();
+    await session.login();
+    const before = portal.requests.length;
+    await expectCode(session.getData('TOTVSEducacional/NotaEtapa', {}, z.unknown(), { periodo: '1999S1' }), 'periodo_inexistente');
+    await expectCode(session.contextFor('1999S1'), 'periodo_inexistente');
+    expect(portal.requests).toHaveLength(before);
+  });
+
+  it('tells which enrollment a period means, and lists them all', async () => {
+    const { session } = setup();
+    await expect(session.contextFor()).resolves.toMatchObject({ codPerLet: '2026S2' });
+    await expect(session.contextFor('2025S2')).resolves.toEqual({ codPerLet: '2025S2', idPerLet: 988, curso: null });
+    expect((await session.ensureSession()).contexts.map((c) => c.codPerLet)).toEqual(['2026S1', '2026S2', '2025S2']);
+  });
+
+  it('puts the context ID in the named query parameter, URL-encoded there', async () => {
+    const { portal, session } = setup({ routes: { 'v1/planoaulas/aulas': academicRoute('ctx+A/1==', []) } });
+    await session.getData('v1/planoaulas/aulas', { a: 1 }, z.unknown(), { periodo: '2026S1', contextParam: 'idContextoAluno' });
+    const { url } = portal.requests.at(-1)!;
+    expect(url.searchParams.get('idContextoAluno')).toBe('ctx+A/1==');
+    expect(url.search).toBe('?a=1&idContextoAluno=ctx%2BA%2F1%3D%3D');
   });
 
   it('logs in again once when the session expires, then retries', async () => {

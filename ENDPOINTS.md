@@ -81,6 +81,8 @@ Observed results for `TOTVSEducacional/NotaEtapa`:
 
 `user/getcurrentuser` and `Contexto` work without this cookie. The permission warning is the sign that the context cookie is missing, not that the account lacks access.
 
+**Switching enrollments (verified from a script, 2026-11-03).** The cookie alone picks the enrollment. Sending another record's raw `IDCONTEXTOALUNO` made `NotaEtapa`, `FaltaEtapa`, `QuadroHorarioAluno`, `DisciplinasAlunoPeriodoLetivo` and `Aluno/Falta/Aula` answer for that period: other `IDTURMADISC` values, and `IDPERLET` of that period in `DisciplinasAlunoPeriodoLetivo`. It worked for the oldest period (`2023S1`) too. The portal keeps no state from it: the next request with the session's own cookie answered for the session's period again, and two concurrent requests with different cookies each got their own period. `Contexto/Selecao` is not needed. The API sends the other cookie with that request only (`periodo` on its endpoints) and leaves the jar alone.
+
 ### 2.5 Logout (verified, state-changing, avoid)
 
 `POST /FrameHTML/RM/API/TOTVSEducacional/Logout`
@@ -284,12 +286,12 @@ All academic pages listed in the menu are now mapped (sections 4.5 to 4.9). The 
 
 1. Capture the lesson calls for a selected class in the browser (click a class on `#/aulas`), so the per-class request list comes from the page itself, not from the factory code.
 2. Find out why `PlanoAula/ArquivoAula` returns 403. It may need a permission that this account lacks. Do not try to get around it.
-3. Check the `Contexto/Selecao` request body. Needed only if the API must switch between enrollments.
+3. ~~Check the `Contexto/Selecao` request body.~~ Not needed: the context cookie alone switches enrollments (section 2.4).
 4. Find the session lifetime. Session expiry was observed (section 3), but the timing was not measured.
 5. Re-check `Widget/DadosWidgets` for `idFuncionalidade` 2, 3, 4, 5 and 11 separately. Only ID 6 has been checked alone.
 6. Build the API on the verified GET endpoints in section 4, plus `Periodos` and `DisciplinasAlunoPeriodoLetivo`.
 7. Only the login flow, `getcurrentuser`, `Contexto`, `NotaEtapa`, `FaltaEtapa` and `Aluno/Falta/Aula` have been checked from outside the browser (curl or the API's own client). The other academic endpoints were checked in the browser, where the context cookie was already set. They probably need the cookie too. Confirm each one from outside the browser.
-8. Check whether setting the context cookie to another enrollment's `IDCONTEXTOALUNO` is enough to switch periods. If it is, the API does not need the state-changing `Contexto/Selecao` (item 3). Until then, `/notas`, `/faltas` and `/faltas/aulas` have no `periodo` parameter: they answer for the enrollment the session picked.
+8. ~~Check whether setting the context cookie to another enrollment's `IDCONTEXTOALUNO` is enough to switch periods.~~ Resolved 2026-11-03: it is (section 2.4). The period-scoped endpoints take `periodo`.
 
 ### 7.1 Not yet recorded, handled defensively in `src/core`
 
@@ -309,6 +311,7 @@ The first run against the real portal (`npm run try -- notas`) answers items 1 t
 
 - Never call `Logout` or `Contexto/Selecao` as a side effect.
 - After login, set the context cookie from `Contexto` before any academic call (section 2.4). Treat the "Usuário sem permissão" warning as a missing or wrong context cookie.
+- To ask about another enrollment, send that record's `IDCONTEXTOALUNO` in the context cookie of that request only.
 - Pass dates in ISO format, and keep the window to what the page uses.
 - Parse `NotaEtapa` and `FaltaEtapa` columns by name, since the names are dynamic.
 - Keep requests at a normal page-load rate.

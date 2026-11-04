@@ -1,11 +1,12 @@
 /**
- * Mapping aid: logs in to the real portal, GETs one API path and prints the
- * *shape* of its `data`: field names, JSON types, string formats and counts.
- * Values are never printed, except the distinct values of fields named in
- * `--values`, which is meant for codes and enums, never for personal fields.
+ * Mapping aid: logs in to the real portal once, GETs each API path given and
+ * prints the *shape* of its `data`: field names, JSON types, string formats and
+ * counts. Values are never printed, except the distinct values of fields named
+ * in `--values`, which is meant for codes and enums, never for personal fields.
  *
- *   npm run probe -- <path> ['<query JSON>'] [--values CAMPO,CAMPO]
+ *   npm run probe -- <path[?query]>… [--values CAMPO,CAMPO] [--periodo 2026S1]
  *   npm run probe -- TOTVSEducacional/Periodos
+ *   npm run probe -- 'TOTVSEducacional/EtapasTurmaDisc?idTurmaDisc=1&tipoEtapaTurmaDisc=F'
  *   npm run probe -- TOTVSEducacional/Aluno/CalendarioAluno --values EVENTTYPE,LABEL
  *
  * The user and password come from PORTAL_ALUNO_USER / PORTAL_ALUNO_PASSWORD or
@@ -15,7 +16,6 @@ import { parseArgs } from 'node:util';
 import { z } from 'zod';
 import { terminalCredentials } from '../src/cli/prompt.js';
 import { PortalSession, isPortalError } from '../src/core/index.js';
-import type { QueryValue } from '../src/core/url.js';
 
 const MAX_VALUES = 25;
 
@@ -103,42 +103,56 @@ function collect(value: unknown, names: Set<string>, out: Map<string, Map<string
   }
 }
 
+/** Prints the shape of one path's `data`, and the values asked for. */
+async function probe(session: PortalSession, target: string, valueFields: Set<string>, periodo?: string): Promise<void> {
+  const [path = '', search = ''] = target.split('?', 2);
+  const data = await session.getData(path, Object.fromEntries(new URLSearchParams(search)), z.unknown(), { periodo });
+  const shape = newShape();
+  add(shape, data);
+  print(shape, 'data', '', 1);
+
+  const out = new Map<string, Map<string, number>>();
+  collect(data, valueFields, out);
+  for (const [field, counts] of out) {
+    const list = [...counts].sort((a, b) => b[1] - a[1]);
+    console.log(`\n${field}: ${counts.size} valores distintos`);
+    for (const [text, count] of list.slice(0, MAX_VALUES)) console.log(`  ${text} ×${count}`);
+    if (list.length > MAX_VALUES) console.log(`  … mais ${list.length - MAX_VALUES}`);
+  }
+}
+
+function report(error: unknown): void {
+  if (isPortalError(error)) {
+    console.error(`Erro [${error.code}]: ${error.message}`);
+    for (const message of error.portalMessages) console.error(`  portal: ${message.type ?? ''} ${message.detail ?? ''}`);
+  } else {
+    console.error(error instanceof Error ? error.message : error);
+  }
+  process.exitCode = 1;
+}
+
 async function main(): Promise<void> {
-  const { values, positionals } = parseArgs({ allowPositionals: true, options: { values: { type: 'string' } } });
-  const [path, rawQuery] = positionals;
-  if (!path) {
-    console.error("Uso: npm run probe -- <caminho> ['<query JSON>'] [--values CAMPO,CAMPO]");
+  const { values, positionals } = parseArgs({
+    allowPositionals: true,
+    options: { values: { type: 'string' }, periodo: { type: 'string' } },
+  });
+  if (positionals.length === 0) {
+    console.error('Uso: npm run probe -- <caminho[?query]>… [--values CAMPO,CAMPO] [--periodo 2026S1]');
     process.exit(2);
   }
-  const query = rawQuery ? (JSON.parse(rawQuery) as Record<string, QueryValue>) : {};
+  const valueFields = new Set(values.values?.split(',') ?? []);
 
   const session = new PortalSession({ credentials: terminalCredentials() });
   try {
     const { context } = await session.login();
-    console.log(`Matrícula da sessão: ${context.codPerLet}`);
-    const data = await session.getData(path, query, z.unknown());
-    const shape = newShape();
-    add(shape, data);
-    print(shape, 'data', '', 1);
-
-    if (values.values) {
-      const out = new Map<string, Map<string, number>>();
-      collect(data, new Set(values.values.split(',')), out);
-      for (const [field, counts] of out) {
-        const list = [...counts].sort((a, b) => b[1] - a[1]);
-        console.log(`\n${field}: ${counts.size} valores distintos`);
-        for (const [text, count] of list.slice(0, MAX_VALUES)) console.log(`  ${text} ×${count}`);
-        if (list.length > MAX_VALUES) console.log(`  … mais ${list.length - MAX_VALUES}`);
-      }
+    console.log(`Matrícula da sessão: ${context.codPerLet}${values.periodo ? `; pedindo ${values.periodo}` : ''}`);
+    for (const target of positionals) {
+      console.log(`\n## ${target}`);
+      // One failing path doesn't stop the others.
+      await probe(session, target, valueFields, values.periodo).catch(report);
     }
   } catch (error) {
-    if (isPortalError(error)) {
-      console.error(`Erro [${error.code}]: ${error.message}`);
-      for (const message of error.portalMessages) console.error(`  portal: ${message.type ?? ''} ${message.detail ?? ''}`);
-    } else {
-      console.error(error instanceof Error ? error.message : error);
-    }
-    process.exitCode = 1;
+    report(error);
   } finally {
     session.forget();
   }

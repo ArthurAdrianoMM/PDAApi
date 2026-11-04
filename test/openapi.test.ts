@@ -42,6 +42,7 @@ describe('OpenAPI document', () => {
     const { parameters } = (doc as Doc).paths['/disciplinas']!.get!;
     expect(parameters).toEqual([
       expect.objectContaining({ name: 'apenasEmCurso', in: 'query', required: false, schema: { type: 'boolean', default: false } }),
+      expect.objectContaining({ name: 'periodo', in: 'query', required: false, schema: { type: 'string', minLength: 1 } }),
     ]);
   });
 

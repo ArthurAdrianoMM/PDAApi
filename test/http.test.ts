@@ -10,6 +10,7 @@ import {
   PASSWORD,
   USER,
   academicRoute,
+  contextRoute,
   createTestSession,
   envelope,
   fakeSession,
@@ -256,9 +257,23 @@ describe('input', () => {
   });
 
   it('rejects unknown parameters', async () => {
-    const res = await setup().authed('/notas?periodo=2026S1');
+    const res = await setup().authed('/notas?semestre=2026S1');
     expect(res.status).toBe(400);
-    expect(await res.json()).toMatchObject({ erro: 'parametro_invalido', detalhes: [{ campo: 'periodo' }] });
+    expect(await res.json()).toMatchObject({ erro: 'parametro_invalido', detalhes: [{ campo: 'semestre' }] });
+  });
+
+  it('answers for the period asked, and 404 for one the account does not have', async () => {
+    const { authed, portal } = setup({
+      routes: { 'TOTVSEducacional/NotaEtapa': contextRoute({ [CONTEXT_ID]: { Notas: [] }, 'ctx+A/1==': { Notas: [] } }) },
+    });
+    const res = await authed('/notas?periodo=2026S1');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ periodo: '2026S1', disciplinas: [] });
+    expect(portal.cookiesOf(portal.requests.at(-1)!).get('EduContextoAlunoResponsavelAPI')).toBe('ctx+A/1==');
+
+    const missing = await authed('/notas?periodo=1999S1');
+    expect(missing.status).toBe(404);
+    expect(await missing.json()).toMatchObject({ erro: 'periodo_inexistente' });
   });
 
   it('serves a nested path and keeps dates as text', async () => {

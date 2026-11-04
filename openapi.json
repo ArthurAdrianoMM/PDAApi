@@ -41,7 +41,7 @@
           "Período"
         ],
         "summary": "Períodos",
-        "description": "Lista os períodos letivos da sua conta, na ordem em que o portal envia. O campo `selecionado` marca o período da matrícula que a sessão está usando.\n\n> [!NOTE]\n> **Qual período a sessão usa**\n>\n> Ao entrar, a sessão escolhe a matrícula com a data de início mais recente. Endpoints como `/notas` respondem sobre essa matrícula.\n\n> [!NOTE]\n> **De onde vêm os dados**\n>\n> O servidor local chama `TOTVSEducacional/Periodos` no portal. A resposta vai do portal para o seu computador e para mais nenhum lugar.",
+        "description": "Lista os períodos letivos da sua conta, na ordem em que o portal envia. O campo `selecionado` marca o período da matrícula que a sessão está usando.\n\n> [!NOTE]\n> **Qual período a sessão usa**\n>\n> Ao entrar, a sessão escolhe a matrícula com a data de início mais recente. Endpoints como `/notas` respondem sobre essa matrícula, a não ser que recebam `periodo` com o `codigo` de outro período daqui.\n\n> [!NOTE]\n> **De onde vêm os dados**\n>\n> O servidor local chama `TOTVSEducacional/Periodos` no portal. A resposta vai do portal para o seu computador e para mais nenhum lugar.",
         "parameters": [],
         "responses": {
           "200": {
@@ -176,6 +176,25 @@
               }
             }
           },
+          "404": {
+            "description": "`periodo_inexistente`: A conta não tem matrícula no período pedido. Os períodos estão em /periodos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "periodo_inexistente": {
+                    "summary": "periodo_inexistente",
+                    "value": {
+                      "erro": "periodo_inexistente",
+                      "mensagem": "A conta não tem matrícula no período pedido. Os períodos estão em /periodos."
+                    }
+                  }
+                }
+              }
+            }
+          },
           "500": {
             "description": "`erro_interno`: Erro no servidor local. Veja o terminal onde ele está rodando.\n\n`configuracao_invalida`: A configuração não combina com o que o portal retornou (alias ou período).",
             "content": {
@@ -267,7 +286,7 @@
           "Período"
         ],
         "summary": "Disciplinas do período",
-        "description": "Lista as disciplinas que o portal retorna para a matrícula da sessão. Cada uma traz o `idTurmaDisc` e a `subturma`, que os endpoints de aulas usam, e o `idPeriodo`.\n\n> [!NOTE]\n> **De onde vêm os dados**\n>\n> O servidor local chama `TOTVSEducacional/DisciplinasAlunoPeriodoLetivo` no portal. A resposta vai do portal para o seu computador e para mais nenhum lugar.",
+        "description": "Lista as disciplinas de um período (padrão: o da matrícula da sessão). Cada uma traz o `idTurmaDisc` e a `subturma`, que os endpoints de aulas usam, e o `idPeriodo`.\n\n> [!NOTE]\n> **De onde vêm os dados**\n>\n> O servidor local chama `TOTVSEducacional/DisciplinasAlunoPeriodoLetivo` no portal. A resposta vai do portal para o seu computador e para mais nenhum lugar.",
         "parameters": [
           {
             "name": "apenasEmCurso",
@@ -277,6 +296,16 @@
             "schema": {
               "default": false,
               "type": "boolean"
+            }
+          },
+          {
+            "name": "periodo",
+            "in": "query",
+            "required": false,
+            "description": "Código do período, como em `/periodos` (ex.: `2026S1`). Padrão: o período da matrícula da sessão.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
             }
           }
         ],
@@ -288,6 +317,10 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "periodo": {
+                      "type": "string",
+                      "description": "Código do período respondido (ex.: `2026S2`)."
+                    },
                     "disciplinas": {
                       "type": "array",
                       "items": {
@@ -356,11 +389,13 @@
                     }
                   },
                   "required": [
+                    "periodo",
                     "disciplinas"
                   ],
                   "additionalProperties": false
                 },
                 "example": {
+                  "periodo": "2026S2",
                   "disciplinas": [
                     {
                       "idTurmaDisc": 48213,
@@ -462,6 +497,25 @@
               }
             }
           },
+          "404": {
+            "description": "`periodo_inexistente`: A conta não tem matrícula no período pedido. Os períodos estão em /periodos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "periodo_inexistente": {
+                    "summary": "periodo_inexistente",
+                    "value": {
+                      "erro": "periodo_inexistente",
+                      "mensagem": "A conta não tem matrícula no período pedido. Os períodos estão em /periodos."
+                    }
+                  }
+                }
+              }
+            }
+          },
           "500": {
             "description": "`erro_interno`: Erro no servidor local. Veja o terminal onde ele está rodando.\n\n`configuracao_invalida`: A configuração não combina com o que o portal retornou (alias ou período).",
             "content": {
@@ -553,8 +607,19 @@
           "Desempenho"
         ],
         "summary": "Notas",
-        "description": "Retorna as notas de cada disciplina da matrícula que a sessão está usando, com uma entrada por avaliação. O período respondido vem em `periodo`.\n\n> [!WARNING]\n> **Avaliações mudam de nome**\n>\n> O portal manda cada avaliação como uma coluna com nome livre, como `1 - AV 1 / AV QT 1`. Aqui elas viram itens de `avaliacoes[]`: `etapa` é o número antes do hífen e `nome` o texto depois. Leia pelo `etapa`, nunca pela posição.\n\n> [!NOTE]\n> **Valor e nota**\n>\n> `valor` é o texto como o portal envia. `nota` é o mesmo valor como número quando ele é numérico (com vírgula ou ponto) e `null` nos outros casos, como avaliações ainda sem nota.\n\n> [!NOTE]\n> **De onde vêm os dados**\n>\n> O servidor local chama `TOTVSEducacional/NotaEtapa` no portal. A resposta vai do portal para o seu computador e para mais nenhum lugar.",
-        "parameters": [],
+        "description": "Retorna as notas de cada disciplina de um período, com uma entrada por avaliação. Sem `periodo`, responde sobre a matrícula da sessão. O período respondido vem em `periodo`.\n\n> [!WARNING]\n> **Avaliações mudam de nome**\n>\n> O portal manda cada avaliação como uma coluna com nome livre, como `1 - AV 1 / AV QT 1`. Aqui elas viram itens de `avaliacoes[]`: `etapa` é o número antes do hífen e `nome` o texto depois. Leia pelo `etapa`, nunca pela posição.\n\n> [!NOTE]\n> **Valor e nota**\n>\n> `valor` é o texto como o portal envia. `nota` é o mesmo valor como número quando ele é numérico (com vírgula ou ponto) e `null` nos outros casos, como avaliações ainda sem nota.\n\n> [!NOTE]\n> **De onde vêm os dados**\n>\n> O servidor local chama `TOTVSEducacional/NotaEtapa` no portal. A resposta vai do portal para o seu computador e para mais nenhum lugar.",
+        "parameters": [
+          {
+            "name": "periodo",
+            "in": "query",
+            "required": false,
+            "description": "Código do período, como em `/periodos` (ex.: `2026S1`). Padrão: o período da matrícula da sessão.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Notas",
@@ -565,7 +630,7 @@
                   "properties": {
                     "periodo": {
                       "type": "string",
-                      "description": "Código do período da matrícula da sessão (ex.: `2026S2`)."
+                      "description": "Código do período respondido (ex.: `2026S2`)."
                     },
                     "disciplinas": {
                       "type": "array",
@@ -752,6 +817,25 @@
               }
             }
           },
+          "404": {
+            "description": "`periodo_inexistente`: A conta não tem matrícula no período pedido. Os períodos estão em /periodos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "periodo_inexistente": {
+                    "summary": "periodo_inexistente",
+                    "value": {
+                      "erro": "periodo_inexistente",
+                      "mensagem": "A conta não tem matrícula no período pedido. Os períodos estão em /periodos."
+                    }
+                  }
+                }
+              }
+            }
+          },
           "500": {
             "description": "`erro_interno`: Erro no servidor local. Veja o terminal onde ele está rodando.\n\n`configuracao_invalida`: A configuração não combina com o que o portal retornou (alias ou período).",
             "content": {
@@ -843,7 +927,7 @@
           "Desempenho"
         ],
         "summary": "Faltas por disciplina",
-        "description": "Retorna o total de faltas de cada disciplina da matrícula que a sessão está usando, com uma entrada por etapa, o percentual e a situação em relação ao limite. Para ver cada aula em que houve falta, use `/faltas/aulas`.\n\n> [!WARNING]\n> **Etapas mudam de nome**\n>\n> Como em `/notas`, o portal manda cada etapa como uma coluna com nome livre, como `0 - Faltas`. Aqui elas viram itens de `etapas[]`: `etapa` é o número antes do hífen e `nome` o texto depois. Leia pelo `etapa`, nunca pela posição.\n\n> [!NOTE]\n> **Limite e percentual**\n>\n> `limite.codigo` segue a legenda do portal: 1 dentro do limite, 2 próximo do limite, 3 acima do limite, 4 não foi possível calcular o percentual. O portal só mostra essa legenda e o percentual quando a escola liga a validação de limite de faltas. Na conta testada, todas as disciplinas vieram com 4, mesmo com `percentual` preenchido.\n\n> [!NOTE]\n> **Total e faltas por aula**\n>\n> Na conta testada, `faltas` da etapa `0` foi igual ao número de itens de `/faltas/aulas` da mesma disciplina quando a janela de datas cobria o período. Cada falta conta uma aula.\n\n> [!NOTE]\n> **De onde vêm os dados**\n>\n> O servidor local chama `TOTVSEducacional/FaltaEtapa` no portal. A resposta vai do portal para o seu computador e para mais nenhum lugar.",
+        "description": "Retorna o total de faltas de cada disciplina de um período (padrão: o da matrícula da sessão), com uma entrada por etapa, o percentual e a situação em relação ao limite. Para ver cada aula em que houve falta, use `/faltas/aulas`.\n\n> [!WARNING]\n> **Etapas mudam de nome**\n>\n> Como em `/notas`, o portal manda cada etapa como uma coluna com nome livre, como `0 - Faltas`. Aqui elas viram itens de `etapas[]`: `etapa` é o número antes do hífen e `nome` o texto depois. Leia pelo `etapa`, nunca pela posição.\n\n> [!NOTE]\n> **Limite e percentual**\n>\n> `limite.codigo` segue a legenda do portal: 1 dentro do limite, 2 próximo do limite, 3 acima do limite, 4 não foi possível calcular o percentual. O portal só mostra essa legenda e o percentual quando a escola liga a validação de limite de faltas. Na conta testada, todas as disciplinas vieram com 4, mesmo com `percentual` preenchido.\n\n> [!NOTE]\n> **Total e faltas por aula**\n>\n> Na conta testada, `faltas` da etapa `0` foi igual ao número de itens de `/faltas/aulas` da mesma disciplina quando a janela de datas cobria o período. Cada falta conta uma aula.\n\n> [!NOTE]\n> **De onde vêm os dados**\n>\n> O servidor local chama `TOTVSEducacional/FaltaEtapa` no portal. A resposta vai do portal para o seu computador e para mais nenhum lugar.",
         "parameters": [
           {
             "name": "idTurmaDisc",
@@ -853,6 +937,16 @@
             "schema": {
               "type": "integer",
               "exclusiveMinimum": 0
+            }
+          },
+          {
+            "name": "periodo",
+            "in": "query",
+            "required": false,
+            "description": "Código do período, como em `/periodos` (ex.: `2026S1`). Padrão: o período da matrícula da sessão.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
             }
           }
         ],
@@ -866,7 +960,7 @@
                   "properties": {
                     "periodo": {
                       "type": "string",
-                      "description": "Código do período da matrícula da sessão (ex.: `2026S2`)."
+                      "description": "Código do período respondido (ex.: `2026S2`)."
                     },
                     "disciplinas": {
                       "type": "array",
@@ -1085,6 +1179,25 @@
               }
             }
           },
+          "404": {
+            "description": "`periodo_inexistente`: A conta não tem matrícula no período pedido. Os períodos estão em /periodos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "periodo_inexistente": {
+                    "summary": "periodo_inexistente",
+                    "value": {
+                      "erro": "periodo_inexistente",
+                      "mensagem": "A conta não tem matrícula no período pedido. Os períodos estão em /periodos."
+                    }
+                  }
+                }
+              }
+            }
+          },
           "500": {
             "description": "`erro_interno`: Erro no servidor local. Veja o terminal onde ele está rodando.\n\n`configuracao_invalida`: A configuração não combina com o que o portal retornou (alias ou período).",
             "content": {
@@ -1176,7 +1289,7 @@
           "Desempenho"
         ],
         "summary": "Faltas por aula",
-        "description": "Lista cada aula em que você faltou, dentro de uma janela de datas, na matrícula que a sessão está usando. Sem `de` e `ate`, a janela é a da página do portal: os últimos 360 dias até hoje. Os itens vêm em ordem de data e horário.\n\n> [!NOTE]\n> **Só faltas, só a matrícula da sessão**\n>\n> O portal é chamado com `tipoFrequencia=A` (ausência), como a página faz, então presenças não aparecem. Na conta testada, uma janela que cobria o período anterior trouxe só faltas do período da sessão.\n\n> [!NOTE]\n> **Datas**\n>\n> `de` e `ate` são dias inteiros no fuso do seu computador: o portal recebe o começo de `de` e o fim de `ate`. `idTurmaDisc` filtra aqui, depois da resposta, como a página do portal faz.\n\n> [!NOTE]\n> **De onde vêm os dados**\n>\n> O servidor local chama `TOTVSEducacional/Aluno/Falta/Aula` no portal. A resposta vai do portal para o seu computador e para mais nenhum lugar.",
+        "description": "Lista cada aula em que você faltou, dentro de uma janela de datas, num período (padrão: o da matrícula da sessão). Sem `de` e `ate`, a janela é a da página do portal: os últimos 360 dias até hoje. Os itens vêm em ordem de data e horário.\n\n> [!NOTE]\n> **Só faltas, só um período**\n>\n> O portal é chamado com `tipoFrequencia=A` (ausência), como a página faz, então presenças não aparecem. A resposta traz só as faltas do período pedido, mesmo que a janela cubra outros. Para um período antigo, passe também `de` e `ate`: a janela padrão é a dos últimos 360 dias.\n\n> [!NOTE]\n> **Datas**\n>\n> `de` e `ate` são dias inteiros no fuso do seu computador: o portal recebe o começo de `de` e o fim de `ate`. `idTurmaDisc` filtra aqui, depois da resposta, como a página do portal faz.\n\n> [!NOTE]\n> **De onde vêm os dados**\n>\n> O servidor local chama `TOTVSEducacional/Aluno/Falta/Aula` no portal. A resposta vai do portal para o seu computador e para mais nenhum lugar.",
         "parameters": [
           {
             "name": "de",
@@ -1209,6 +1322,16 @@
               "type": "integer",
               "exclusiveMinimum": 0
             }
+          },
+          {
+            "name": "periodo",
+            "in": "query",
+            "required": false,
+            "description": "Código do período, como em `/periodos` (ex.: `2026S1`). Padrão: o período da matrícula da sessão.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
           }
         ],
         "responses": {
@@ -1221,7 +1344,7 @@
                   "properties": {
                     "periodo": {
                       "type": "string",
-                      "description": "Código do período da matrícula da sessão (ex.: `2026S2`)."
+                      "description": "Código do período respondido (ex.: `2026S2`)."
                     },
                     "de": {
                       "type": "string",
@@ -1452,6 +1575,25 @@
               }
             }
           },
+          "404": {
+            "description": "`periodo_inexistente`: A conta não tem matrícula no período pedido. Os períodos estão em /periodos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "periodo_inexistente": {
+                    "summary": "periodo_inexistente",
+                    "value": {
+                      "erro": "periodo_inexistente",
+                      "mensagem": "A conta não tem matrícula no período pedido. Os períodos estão em /periodos."
+                    }
+                  }
+                }
+              }
+            }
+          },
           "500": {
             "description": "`erro_interno`: Erro no servidor local. Veja o terminal onde ele está rodando.\n\n`configuracao_invalida`: A configuração não combina com o que o portal retornou (alias ou período).",
             "content": {
@@ -1543,7 +1685,7 @@
           "Rotina"
         ],
         "summary": "Quadro de horário",
-        "description": "Retorna o quadro de horário semanal da matrícula que a sessão está usando: um item por aula na semana, em ordem de dia e hora, e as faixas de horário da grade. O período respondido vem em `periodo`.\n\n> [!NOTE]\n> **Horários encerrados**\n>\n> Cada horário vale entre as datas de `vigencia`. Como a página do portal, a resposta deixa de fora os horários cuja vigência já terminou. Use `incluirEncerrados=true` para recebê-los também, como \"Mostrar todos\" no portal. Um horário ainda aparece no seu último dia.\n\n> [!NOTE]\n> **Dias da semana**\n>\n> `diaSemana` segue a numeração do portal: `1` é domingo e `7` é sábado. É o `getDay()` do JavaScript mais um. `dia` traz o mesmo dia por extenso.\n\n> [!NOTE]\n> **Faixas**\n>\n> `faixas` são as linhas da grade do portal, inclusive as que não têm aula nenhuma. Servem para desenhar o quadro; as aulas estão em `horarios`.\n\n> [!NOTE]\n> **De onde vêm os dados**\n>\n> O servidor local chama `TOTVSEducacional/QuadroHorarioAluno` no portal. A resposta vai do portal para o seu computador e para mais nenhum lugar.",
+        "description": "Retorna o quadro de horário semanal de um período (padrão: o da matrícula da sessão): um item por aula na semana, em ordem de dia e hora, e as faixas de horário da grade. O período respondido vem em `periodo`.\n\n> [!NOTE]\n> **Horários encerrados**\n>\n> Cada horário vale entre as datas de `vigencia`. Como a página do portal, a resposta deixa de fora os horários cuja vigência já terminou. Use `incluirEncerrados=true` para recebê-los também, como \"Mostrar todos\" no portal. Um horário ainda aparece no seu último dia.\n\n> [!NOTE]\n> **Dias da semana**\n>\n> `diaSemana` segue a numeração do portal: `1` é domingo e `7` é sábado. É o `getDay()` do JavaScript mais um. `dia` traz o mesmo dia por extenso.\n\n> [!NOTE]\n> **Faixas**\n>\n> `faixas` são as linhas da grade do portal, inclusive as que não têm aula nenhuma. Servem para desenhar o quadro; as aulas estão em `horarios`.\n\n> [!NOTE]\n> **De onde vêm os dados**\n>\n> O servidor local chama `TOTVSEducacional/QuadroHorarioAluno` no portal. A resposta vai do portal para o seu computador e para mais nenhum lugar.",
         "parameters": [
           {
             "name": "incluirEncerrados",
@@ -1553,6 +1695,16 @@
             "schema": {
               "default": false,
               "type": "boolean"
+            }
+          },
+          {
+            "name": "periodo",
+            "in": "query",
+            "required": false,
+            "description": "Código do período, como em `/periodos` (ex.: `2026S1`). Padrão: o período da matrícula da sessão.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
             }
           }
         ],
@@ -1566,7 +1718,7 @@
                   "properties": {
                     "periodo": {
                       "type": "string",
-                      "description": "Código do período da matrícula da sessão (ex.: `2026S2`)."
+                      "description": "Código do período respondido (ex.: `2026S2`)."
                     },
                     "faixas": {
                       "type": "array",
@@ -1853,6 +2005,25 @@
               }
             }
           },
+          "404": {
+            "description": "`periodo_inexistente`: A conta não tem matrícula no período pedido. Os períodos estão em /periodos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "periodo_inexistente": {
+                    "summary": "periodo_inexistente",
+                    "value": {
+                      "erro": "periodo_inexistente",
+                      "mensagem": "A conta não tem matrícula no período pedido. Os períodos estão em /periodos."
+                    }
+                  }
+                }
+              }
+            }
+          },
           "500": {
             "description": "`erro_interno`: Erro no servidor local. Veja o terminal onde ele está rodando.\n\n`configuracao_invalida`: A configuração não combina com o que o portal retornou (alias ou período).",
             "content": {
@@ -1958,6 +2129,7 @@
               "sessao_expirada",
               "portal_recusou",
               "sem_contexto",
+              "periodo_inexistente",
               "erro_do_portal",
               "resposta_inesperada",
               "portal_indisponivel",

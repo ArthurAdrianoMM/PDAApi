@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { codeLike, integerLike, optionalCode } from '../core/schemas.js';
 import { defineOperation } from './define.js';
+import { periodoInput, periodoOutput } from './periodo.js';
 
 /**
  * `TOTVSEducacional/DisciplinasAlunoPeriodoLetivo` (ENDPOINTS.md 4.3). Only the
@@ -43,7 +44,7 @@ export const listarDisciplinas = defineOperation({
   tag: 'Período',
   summary: 'Disciplinas do período',
   description:
-    'Lista as disciplinas que o portal retorna para a matrícula da sessão. ' +
+    'Lista as disciplinas de um período (padrão: o da matrícula da sessão). ' +
     'Cada uma traz o `idTurmaDisc` e a `subturma`, que os endpoints de aulas usam, e o `idPeriodo`.',
   callouts: [],
   upstream: ['TOTVSEducacional/DisciplinasAlunoPeriodoLetivo'],
@@ -52,9 +53,11 @@ export const listarDisciplinas = defineOperation({
       .boolean()
       .default(false)
       .describe('Quando `true`, pede ao portal só as disciplinas em curso, como a página de Arquivos faz.'),
+    periodo: periodoInput,
   }),
-  output: z.object({ disciplinas: z.array(disciplinaSchema) }),
+  output: z.object({ periodo: periodoOutput, disciplinas: z.array(disciplinaSchema) }),
   example: {
+    periodo: '2026S2',
     disciplinas: [
       {
         idTurmaDisc: 48213,
@@ -76,13 +79,16 @@ export const listarDisciplinas = defineOperation({
       },
     ],
   },
-  async handler(session, { apenasEmCurso }) {
+  async handler(session, { apenasEmCurso, periodo }) {
+    const context = await session.contextFor(periodo);
     const rows = await session.getData(
       'TOTVSEducacional/DisciplinasAlunoPeriodoLetivo',
       { mostraApenasDiscEmCurso: apenasEmCurso },
       upstreamSchema,
+      { periodo },
     );
     return {
+      periodo: context.codPerLet,
       disciplinas: rows.map((row) => ({
         idTurmaDisc: row.IDTURMADISC,
         codigo: row.CODDISC,

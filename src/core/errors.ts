@@ -9,6 +9,7 @@ export const PORTAL_ERROR_CODES = {
   sessao_expirada: 'O portal recusou a sessão, e um novo login não resolveu.',
   portal_recusou: 'O portal negou o acesso (HTTP 403). A API repassa a recusa e não tenta outro caminho.',
   sem_contexto: 'O portal pediu um contexto de matrícula que a sessão não tem.',
+  periodo_inexistente: 'A conta não tem matrícula no período pedido. Os períodos estão em /periodos.',
   erro_do_portal: 'O portal retornou um erro dentro da resposta.',
   resposta_inesperada: 'A resposta do portal não tem o formato documentado.',
   portal_indisponivel: 'Não foi possível falar com o portal: sem conexão, tempo esgotado ou erro 5xx.',

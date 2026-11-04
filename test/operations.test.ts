@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { TAGS, operations, runOperation } from '../src/operations/index.js';
+import { TAGS, operations, runOperation, type Operation } from '../src/operations/index.js';
 import { listarDisciplinas } from '../src/operations/disciplinas.js';
 import { obterHorario } from '../src/operations/horario.js';
 import { obterNotas } from '../src/operations/notas.js';
 import { obterFaltas } from '../src/operations/faltas.js';
 import { listarFaltasPorAula } from '../src/operations/faltas-aulas.js';
 import { listarPeriodos } from '../src/operations/periodos.js';
-import { academicRoute, createTestSession, type DataRoute } from './support/fake-portal.js';
+import { CONTEXT_COOKIE, academicRoute, contextRoute, createTestSession, type DataRoute } from './support/fake-portal.js';
 
 const CONTEXT_ID = 'ctx+B/2==';
 
@@ -62,6 +62,7 @@ describe('listarDisciplinas', () => {
   it('maps the fields and normalizes a blank subclass to null', async () => {
     const { session } = sessionWith({ 'TOTVSEducacional/DisciplinasAlunoPeriodoLetivo': academicRoute(CONTEXT_ID, [row]) });
     await expect(runOperation(listarDisciplinas, session, {})).resolves.toEqual({
+      periodo: '2026S2',
       disciplinas: [
         {
           idTurmaDisc: 48230,
@@ -421,5 +422,27 @@ describe('obterHorario', () => {
     expect(error).toMatchObject({ code: 'resposta_inesperada' });
     expect((error as Error).message).toContain('SHorarioAluno.0.IDTURMADISC');
     expect((error as Error).message).not.toContain(secret);
+  });
+});
+
+describe('periodo', () => {
+  /** The smallest valid answer of each period-scoped operation's portal call. */
+  const cases: { op: Operation; path: string; data: unknown }[] = [
+    { op: listarDisciplinas, path: 'TOTVSEducacional/DisciplinasAlunoPeriodoLetivo', data: [] },
+    { op: obterNotas, path: 'TOTVSEducacional/NotaEtapa', data: { Notas: [] } },
+    { op: obterFaltas, path: 'TOTVSEducacional/FaltaEtapa', data: { FaltasEtapa: [] } },
+    { op: listarFaltasPorAula, path: 'TOTVSEducacional/Aluno/Falta/Aula', data: { SFREQUENCIAALUNO: [] } },
+    { op: obterHorario, path: 'TOTVSEducacional/QuadroHorarioAluno', data: { SHorarioAluno: [] } },
+  ];
+
+  it.each(cases.map((c) => [c.op.id, c] as const))('%s answers for the period asked, with its context cookie', async (_, { op, path, data }) => {
+    const { portal, session } = sessionWith({ [path]: contextRoute({ [CONTEXT_ID]: data, 'ctx+A/1==': data }) });
+
+    await expect(runOperation(op, session, {})).resolves.toMatchObject({ periodo: '2026S2' });
+    await expect(runOperation(op, session, { periodo: '2026S1' })).resolves.toMatchObject({ periodo: '2026S1' });
+    const sent = portal.requests.filter((r) => r.url.pathname.endsWith(path)).map((r) => portal.cookiesOf(r).get(CONTEXT_COOKIE));
+    expect(sent).toEqual([CONTEXT_ID, 'ctx+A/1==']);
+
+    await expect(runOperation(op, session, { periodo: '1999S1' })).rejects.toMatchObject({ code: 'periodo_inexistente' });
   });
 });

@@ -1,4 +1,4 @@
-import { Cookie, CookieJar } from 'tough-cookie';
+import { Cookie, CookieJar, cookieCompare } from 'tough-cookie';
 import type { PortalConfig } from './config.js';
 import { PortalError } from './errors.js';
 import { createThrottle } from './throttle.js';
@@ -11,6 +11,11 @@ export interface PortalRequest {
   url: URL;
   /** Sent as `application/json`. */
   json?: unknown;
+  /**
+   * Cookies for this request only, replacing the jar's cookies of the same
+   * name. Values are sent as is. The jar itself does not change.
+   */
+  cookies?: Record<string, string>;
 }
 
 export interface PortalResponse {
@@ -55,10 +60,11 @@ export class PortalHttp {
     this.#jar = new CookieJar();
   }
 
-  async #send({ method, url, json }: PortalRequest): Promise<PortalResponse> {
+  async #send({ method, url, json, cookies: overrides = {} }: PortalRequest): Promise<PortalResponse> {
     const headers = new Headers({ accept: ACCEPT, 'user-agent': this.#config.userAgent });
-    const cookies = await this.#jar.getCookieString(url.href);
-    if (cookies) headers.set('cookie', cookies);
+    const jar = (await this.#jar.getCookies(url.href)).sort(cookieCompare).filter((c) => !Object.hasOwn(overrides, c.key));
+    const cookies = [...jar.map((c) => c.cookieString()), ...Object.entries(overrides).map(([name, value]) => `${name}=${value}`)];
+    if (cookies.length > 0) headers.set('cookie', cookies.join('; '));
 
     let body: string | undefined;
     if (json !== undefined) {

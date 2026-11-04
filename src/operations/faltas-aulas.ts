@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { codeLike, optionalCode, optionalText } from '../core/schemas.js';
 import { defineOperation } from './define.js';
+import { periodoInput, periodoOutput } from './periodo.js';
 
 /** The `#/faltas` page's default window: 360 days back from today. */
 const JANELA_PADRAO_DIAS = 360;
@@ -68,16 +69,17 @@ export const listarFaltasPorAula = defineOperation({
   tag: 'Desempenho',
   summary: 'Faltas por aula',
   description:
-    'Lista cada aula em que você faltou, dentro de uma janela de datas, na matrícula que a sessão está usando. ' +
+    'Lista cada aula em que você faltou, dentro de uma janela de datas, num período (padrão: o da matrícula da sessão). ' +
     'Sem `de` e `ate`, a janela é a da página do portal: os últimos 360 dias até hoje. ' +
     'Os itens vêm em ordem de data e horário.',
   callouts: [
     {
       kind: 'info',
-      title: 'Só faltas, só a matrícula da sessão',
+      title: 'Só faltas, só um período',
       body:
         'O portal é chamado com `tipoFrequencia=A` (ausência), como a página faz, então presenças não aparecem. ' +
-        'Na conta testada, uma janela que cobria o período anterior trouxe só faltas do período da sessão.',
+        'A resposta traz só as faltas do período pedido, mesmo que a janela cubra outros. ' +
+        'Para um período antigo, passe também `de` e `ate`: a janela padrão é a dos últimos 360 dias.',
     },
     {
       kind: 'info',
@@ -96,13 +98,14 @@ export const listarFaltasPorAula = defineOperation({
         .describe('Primeiro dia da janela (AAAA-MM-DD). Padrão: 360 dias antes de `ate`.'),
       ate: z.iso.date().optional().describe('Último dia da janela (AAAA-MM-DD). Padrão: hoje.'),
       idTurmaDisc: z.number().int().positive().optional().describe('Só as faltas desta disciplina.'),
+      periodo: periodoInput,
     })
     .refine(({ de, ate }) => de === undefined || de <= (ate ?? hoje()), {
       path: ['de'],
       message: '`de` precisa ser igual ou anterior a `ate` (padrão: hoje).',
     }),
   output: z.object({
-    periodo: z.string().describe('Código do período da matrícula da sessão (ex.: `2026S2`).'),
+    periodo: periodoOutput,
     de: z.iso.date().describe('Primeiro dia da janela usada.'),
     ate: z.iso.date().describe('Último dia da janela usada.'),
     faltas: z.array(faltaSchema),
@@ -130,13 +133,14 @@ export const listarFaltasPorAula = defineOperation({
     ],
   },
   async handler(session, input) {
-    const { context } = await session.ensureSession();
+    const context = await session.contextFor(input.periodo);
     const ate = input.ate ?? hoje();
     const de = input.de ?? diasAntes(ate, JANELA_PADRAO_DIAS);
     const data = await session.getData(
       'TOTVSEducacional/Aluno/Falta/Aula',
       { dataDe: at(de, 0).toISOString(), dataAte: at(ate, 23, 59, 59, 999).toISOString(), tipoFrequencia: 'A' },
       upstreamSchema,
+      { periodo: input.periodo },
     );
 
     const faltas = data.SFREQUENCIAALUNO.filter(

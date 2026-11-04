@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { codeLike, optionalText } from '../core/schemas.js';
 import { defineOperation } from './define.js';
+import { periodoInput, periodoOutput } from './periodo.js';
 import { readStageColumns } from './stages.js';
 
 /** `SITUACAOFALTAS` codes, with the texts of the portal's own legend on `#/faltas`. */
@@ -70,7 +71,7 @@ export const obterFaltas = defineOperation({
   tag: 'Desempenho',
   summary: 'Faltas por disciplina',
   description:
-    'Retorna o total de faltas de cada disciplina da matrícula que a sessão está usando, ' +
+    'Retorna o total de faltas de cada disciplina de um período (padrão: o da matrícula da sessão), ' +
     'com uma entrada por etapa, o percentual e a situação em relação ao limite. ' +
     'Para ver cada aula em que houve falta, use `/faltas/aulas`.',
   callouts: [
@@ -106,9 +107,10 @@ export const obterFaltas = defineOperation({
       .positive()
       .optional()
       .describe('Só esta disciplina, como quando se escolhe uma disciplina na página do portal. Sem ele, vêm todas.'),
+    periodo: periodoInput,
   }),
   output: z.object({
-    periodo: z.string().describe('Código do período da matrícula da sessão (ex.: `2026S2`).'),
+    periodo: periodoOutput,
     disciplinas: z.array(disciplinaSchema),
   }),
   example: {
@@ -126,10 +128,10 @@ export const obterFaltas = defineOperation({
       },
     ],
   },
-  async handler(session, { idTurmaDisc }) {
-    const { context } = await session.ensureSession();
+  async handler(session, { idTurmaDisc, periodo }) {
+    const context = await session.contextFor(periodo);
     // Without idTurmaDisc the portal answers for every class of the context in the cookie (ENDPOINTS.md 4.3).
-    const data = await session.getData('TOTVSEducacional/FaltaEtapa', { idTurmaDisc }, upstreamSchema);
+    const data = await session.getData('TOTVSEducacional/FaltaEtapa', { idTurmaDisc }, upstreamSchema, { periodo });
     return { periodo: context.codPerLet, disciplinas: data.FaltasEtapa };
   },
 });

@@ -30,7 +30,8 @@ export const listarPeriodos = defineOperation({
       title: 'Qual período a sessão usa',
       body:
         'Ao entrar, a sessão escolhe a matrícula com a data de início mais recente. ' +
-        'Endpoints como `/notas` respondem sobre essa matrícula.',
+        'Endpoints como `/notas` respondem sobre essa matrícula, a não ser que recebam `periodo` ' +
+        'com o `codigo` de outro período daqui.',
     },
   ],
   upstream: ['TOTVSEducacional/Periodos'],

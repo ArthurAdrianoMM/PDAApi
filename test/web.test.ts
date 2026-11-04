@@ -23,6 +23,7 @@ describe('spec model', () => {
   it('reads parameters, errors, upstream calls and the portal address', () => {
     expect(byId('listarDisciplinas').parameters).toEqual([
       expect.objectContaining({ name: 'apenasEmCurso', in: 'query', required: false, schema: { type: 'boolean', default: false } }),
+      expect.objectContaining({ name: 'periodo', in: 'query', required: false }),
     ]);
     expect(byId('obterNotas').errors).toEqual(
       expect.arrayContaining([
