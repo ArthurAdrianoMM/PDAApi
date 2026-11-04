@@ -3,6 +3,7 @@ import type { Operation } from './define.js';
 import { listarDisciplinas } from './disciplinas.js';
 import { obterFaltas } from './faltas.js';
 import { listarFaltasPorAula } from './faltas-aulas.js';
+import { obterGradeCurricular } from './grade-curricular.js';
 import { obterHorario } from './horario.js';
 import { obterNotas } from './notas.js';
 import { listarPeriodos } from './periodos.js';
@@ -17,6 +18,7 @@ export const operations: readonly Operation[] = [
   obterNotas,
   obterFaltas,
   listarFaltasPorAula,
+  obterGradeCurricular,
   obterHorario,
   listarAulas,
 ];

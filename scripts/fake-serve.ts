@@ -7,6 +7,7 @@
  */
 import { serve } from '@hono/node-server';
 import { createApp } from '../src/http/app.js';
+import { GRADE_CURRICULAR } from '../test/fixtures/grade-curricular.js';
 import { CONTEXTS, ORIGIN, PASSWORD, USER, contextRoute, createFakePortal, fakeSession } from '../test/support/fake-portal.js';
 
 const PORT = 4321;
@@ -60,6 +61,7 @@ const portal = createFakePortal({
       SDescDisc: [],
       SQuadroHorarioAulaOnline: [],
     }),
+    'TOTVSEducacional/GradeCurricular/EnsinoSuperior': academic(GRADE_CURRICULAR),
     // The fake ignores dtInicial/dtFinal and always answers with these lessons.
     'TOTVSEducacional/v1/planoaulas/aulas': academic({
       SPlanoAula: [

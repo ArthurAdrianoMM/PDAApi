@@ -16,6 +16,7 @@ import {
   fakeSession,
   type FakePortalOptions,
 } from './support/fake-portal.js';
+import { GRADE_CURRICULAR } from './fixtures/grade-curricular.js';
 
 const TOKEN = 'token-de-teste';
 const PORT = 4321;
@@ -353,5 +354,20 @@ describe('endpoints end to end', () => {
     const tooLong = await authed('/aulas?de=2026-01-01&ate=2026-03-01');
     expect(tooLong.status).toBe(400);
     expect(await tooLong.json()).toMatchObject({ erro: 'parametro_invalido', detalhes: [{ campo: 'ate' }] });
+  });
+
+  it('GET /grade-curricular: the grade by group, filtered by situation', async () => {
+    const { authed } = setup({
+      routes: { 'TOTVSEducacional/GradeCurricular/EnsinoSuperior': academicRoute(CONTEXT_ID, GRADE_CURRICULAR) },
+    });
+    const res = await authed('/grade-curricular?situacao=em_curso');
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { grupos: { codigo: number; disciplinas: { codigo: string }[] }[] };
+    expect(body).toMatchObject({ periodo: '2026S2', curso: { codigo: 'DS' }, cargaHoraria: { curso: 1200 } });
+    expect(body.grupos.map((g) => [g.codigo, g.disciplinas.map((d) => d.codigo)])).toEqual([[2, ['PW2']]]);
+
+    const wrong = await authed('/grade-curricular?situacao=todas');
+    expect(wrong.status).toBe(400);
+    expect(await wrong.json()).toMatchObject({ erro: 'parametro_invalido', detalhes: [{ campo: 'situacao' }] });
   });
 });

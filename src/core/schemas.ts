@@ -22,3 +22,18 @@ export const optionalCode = z
   .union([z.string(), z.number(), z.null()])
   .optional()
   .transform((value) => (value === null || value === undefined || String(value).trim() === '' ? null : String(value)));
+
+/**
+ * A number the portal may send as text with a decimal comma and thousands
+ * points (`"4.230,0000"`), as its pages parse it. Blank, null or missing
+ * become `null`; other text fails validation.
+ */
+export const optionalDecimal = z
+  .union([z.number(), z.string().regex(/^\s*$|^\s*-?\d{1,3}(?:\.?\d{3})*(?:,\d+)?\s*$/), z.null()])
+  .optional()
+  .transform((value) => {
+    if (value === null || value === undefined) return null;
+    if (typeof value === 'number') return value;
+    const text = value.trim();
+    return text === '' ? null : Number(text.replaceAll('.', '').replace(',', '.'));
+  });

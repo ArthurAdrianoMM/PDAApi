@@ -1678,6 +1678,855 @@
         ]
       }
     },
+    "/grade-curricular": {
+      "get": {
+        "operationId": "obterGradeCurricular",
+        "tags": [
+          "Desempenho"
+        ],
+        "summary": "Grade curricular e histórico",
+        "description": "Retorna a grade curricular do curso com o histórico de cada disciplina: em que período foi cursada, nota, faltas, carga horária e situação (em curso, pendente ou concluída), agrupadas por semestre da grade, como a página \"Grade curricular\" do portal. Traz também o resumo do curso: carga horária integralizada, média global e as quantidades de disciplinas concluídas e pendentes.\n\n> [!NOTE]\n> **Situação e status**\n>\n> `situacao` diz em que aba do portal a disciplina aparece: `em_curso`, `pendente` ou `concluida`. `status` é o texto do portal. Uma disciplina cancelada volta a ser `pendente`; uma ainda não cursada é `pendente` com `status` `null`.\n\n> [!NOTE]\n> **A grade é do curso**\n>\n> A grade e o histórico são do curso, não de um semestre: na conta testada, todos os períodos trouxeram a mesma grade. `periodo` só muda a resposta quando escolhe uma matrícula de outro curso.\n\n> [!NOTE]\n> **Linhas que são só texto**\n>\n> A resposta do portal mistura as disciplinas com linhas de texto da página, como totais e \"não existem disciplinas\". Elas ficam de fora; o total de cada grupo vem calculado em `cargaHorariaIntegralizada`.\n\n> [!NOTE]\n> **Números**\n>\n> O portal manda cargas horárias, créditos e notas como texto com vírgula (`375,0000`). Aqui eles vêm como números. No `resumo`, `medida` diz o que cada quadro conta: as obrigatórias contam disciplinas; os outros quadros, na conta testada, horas.\n\n> [!NOTE]\n> **De onde vêm os dados**\n>\n> O servidor local chama `TOTVSEducacional/GradeCurricular/EnsinoSuperior` no portal. A resposta vai do portal para o seu computador e para mais nenhum lugar.",
+        "parameters": [
+          {
+            "name": "situacao",
+            "in": "query",
+            "required": false,
+            "description": "Só as disciplinas nesta situação, como as abas do portal. Grupos que ficarem vazios saem.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "em_curso",
+                "pendente",
+                "concluida"
+              ]
+            }
+          },
+          {
+            "name": "periodo",
+            "in": "query",
+            "required": false,
+            "description": "Código do período, como em `/periodos` (ex.: `2026S1`). Padrão: o período da matrícula da sessão.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Grade curricular e histórico",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "periodo": {
+                      "type": "string",
+                      "description": "Código do período respondido (ex.: `2026S2`)."
+                    },
+                    "curso": {
+                      "type": "object",
+                      "properties": {
+                        "codigo": {
+                          "type": "string",
+                          "description": "Código do curso (`CODCURSO`)."
+                        },
+                        "nome": {
+                          "type": "string",
+                          "description": "Nome do curso."
+                        },
+                        "habilitacao": {
+                          "description": "Habilitação (`NOMEHABILITACAO`).",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "grade": {
+                          "description": "Nome da grade curricular (matriz).",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "turno": {
+                          "description": "Turno.",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "codigo",
+                        "nome",
+                        "habilitacao",
+                        "grade",
+                        "turno"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "situacao": {
+                      "type": "object",
+                      "properties": {
+                        "codigo": {
+                          "type": "string",
+                          "description": "`CODSTATUS` da matrícula no curso."
+                        },
+                        "descricao": {
+                          "description": "O texto do portal (ex.: `Matriculado`).",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "codigo",
+                        "descricao"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "ingresso": {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "Data de ingresso no curso."
+                        },
+                        "forma": {
+                          "description": "Forma de ingresso, como o portal envia.",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "data",
+                        "forma"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "cr": {
+                      "description": "Coeficiente de rendimento, quando a escola calcula.",
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "mediaGlobal": {
+                      "description": "Média global do curso.",
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "cargaHoraria": {
+                      "type": "object",
+                      "properties": {
+                        "curso": {
+                          "description": "Carga horária total do curso, em horas.",
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "grade": {
+                          "description": "Carga horária da grade, em horas.",
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "integralizada": {
+                          "description": "Carga horária integralizada até agora.",
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "concluida": {
+                          "description": "Carga horária concluída até agora.",
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "curso",
+                        "grade",
+                        "integralizada",
+                        "concluida"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "resumo": {
+                      "type": "object",
+                      "properties": {
+                        "obrigatorias": {
+                          "type": "object",
+                          "properties": {
+                            "medida": {
+                              "description": "O que os números medem, como o portal escreve: `Número` de disciplinas, ou `Carga horária` em horas.",
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "total": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "concluidas": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "pendentes": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "medida",
+                            "total",
+                            "concluidas",
+                            "pendentes"
+                          ],
+                          "additionalProperties": false,
+                          "description": "Um quadro do resumo do portal; `null` nos números que o portal não informa."
+                        },
+                        "optativas": {
+                          "type": "object",
+                          "properties": {
+                            "medida": {
+                              "description": "O que os números medem, como o portal escreve: `Número` de disciplinas, ou `Carga horária` em horas.",
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "total": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "concluidas": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "pendentes": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "medida",
+                            "total",
+                            "concluidas",
+                            "pendentes"
+                          ],
+                          "additionalProperties": false,
+                          "description": "Um quadro do resumo do portal; `null` nos números que o portal não informa."
+                        },
+                        "eletivas": {
+                          "type": "object",
+                          "properties": {
+                            "medida": {
+                              "description": "O que os números medem, como o portal escreve: `Número` de disciplinas, ou `Carga horária` em horas.",
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "total": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "concluidas": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "pendentes": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "medida",
+                            "total",
+                            "concluidas",
+                            "pendentes"
+                          ],
+                          "additionalProperties": false,
+                          "description": "Um quadro do resumo do portal; `null` nos números que o portal não informa."
+                        },
+                        "atividadesCurriculares": {
+                          "type": "object",
+                          "properties": {
+                            "medida": {
+                              "description": "O que os números medem, como o portal escreve: `Número` de disciplinas, ou `Carga horária` em horas.",
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "total": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "concluidas": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "pendentes": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "medida",
+                            "total",
+                            "concluidas",
+                            "pendentes"
+                          ],
+                          "additionalProperties": false,
+                          "description": "Um quadro do resumo do portal; `null` nos números que o portal não informa."
+                        },
+                        "extensao": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "medida": {
+                                  "description": "O que os números medem, como o portal escreve: `Número` de disciplinas, ou `Carga horária` em horas.",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "total": {
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ]
+                                },
+                                "concluidas": {
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ]
+                                },
+                                "pendentes": {
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "medida",
+                                "total",
+                                "concluidas",
+                                "pendentes"
+                              ],
+                              "additionalProperties": false,
+                              "description": "Um quadro do resumo do portal; `null` nos números que o portal não informa."
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "Atividades de extensão, ou `null` quando o curso não tem."
+                        }
+                      },
+                      "required": [
+                        "obrigatorias",
+                        "optativas",
+                        "eletivas",
+                        "atividadesCurriculares",
+                        "extensao"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "grupos": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "codigo": {
+                            "type": "integer",
+                            "description": "`CODPERIODO` do portal: o semestre da grade (`1`, `2`…) ou um código de grupo (`97`, `98`, `100`)."
+                          },
+                          "nome": {
+                            "type": "string",
+                            "description": "Nome do grupo, como o portal mostra (ex.: `1° Semestre`, `Eletivas/Optativas`)."
+                          },
+                          "tipo": {
+                            "type": "object",
+                            "properties": {
+                              "codigo": {
+                                "type": "integer",
+                                "description": "`TIPOENUM`: 1 obrigatórias, 2 equivalentes, 3 eletivas/optativas, 4 atividades curriculares, 5 extras."
+                              },
+                              "descricao": {
+                                "description": "O nome do filtro do portal para o código.",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "codigo",
+                              "descricao"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "cargaHorariaIntegralizada": {
+                            "type": "number",
+                            "description": "Soma de `cargaHorariaIntegralizada` das disciplinas do grupo."
+                          },
+                          "disciplinas": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "codigo": {
+                                  "description": "Código da disciplina (`CODDISC`), ou `null` em atividades sem código.",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "nome": {
+                                  "type": "string",
+                                  "description": "Nome da disciplina ou da atividade."
+                                },
+                                "situacao": {
+                                  "type": "string",
+                                  "enum": [
+                                    "em_curso",
+                                    "pendente",
+                                    "concluida"
+                                  ],
+                                  "description": "A aba do portal em que ela aparece (`STATUSENUM`). Uma disciplina cancelada é `pendente`."
+                                },
+                                "status": {
+                                  "description": "O texto do portal (ex.: `Aprovado`, `Matriculado`, `Cancelado`), ou `null` se ainda não foi cursada.",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "periodo": {
+                                  "description": "Período em que foi cursada (`PLETIVO`, ex.: `2025S1`), ou `null`.",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "nota": {
+                                  "description": "Nota final como número, ou `null` sem nota.",
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ]
+                                },
+                                "conceito": {
+                                  "description": "Conceito, quando a escola usa conceitos.",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "faltas": {
+                                  "description": "Total de faltas, ou `null`.",
+                                  "type": [
+                                    "integer",
+                                    "null"
+                                  ]
+                                },
+                                "creditos": {
+                                  "description": "Créditos (`NUMCREDITOS`).",
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ]
+                                },
+                                "cargaHoraria": {
+                                  "description": "Carga horária da disciplina, em horas.",
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ]
+                                },
+                                "cargaHorariaIntegralizada": {
+                                  "description": "Carga horária já integralizada, em horas.",
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ]
+                                },
+                                "modalidade": {
+                                  "description": "Modalidade da atividade curricular (ex.: `1.1 Monitoria`); `null` nas disciplinas.",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "idTurmaDisc": {
+                                  "description": "ID da turma da disciplina em que foi cursada. Combina com `/disciplinas`.",
+                                  "type": [
+                                    "integer",
+                                    "null"
+                                  ]
+                                },
+                                "idPeriodo": {
+                                  "description": "ID do período em que foi cursada. Combina com `/periodos`.",
+                                  "type": [
+                                    "integer",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "codigo",
+                                "nome",
+                                "situacao",
+                                "status",
+                                "periodo",
+                                "nota",
+                                "conceito",
+                                "faltas",
+                                "creditos",
+                                "cargaHoraria",
+                                "cargaHorariaIntegralizada",
+                                "modalidade",
+                                "idTurmaDisc",
+                                "idPeriodo"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "codigo",
+                          "nome",
+                          "tipo",
+                          "cargaHorariaIntegralizada",
+                          "disciplinas"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "description": "Os grupos da grade, na ordem do portal: semestres, depois equivalentes, eletivas e componentes."
+                    }
+                  },
+                  "required": [
+                    "periodo",
+                    "curso",
+                    "situacao",
+                    "ingresso",
+                    "cr",
+                    "mediaGlobal",
+                    "cargaHoraria",
+                    "resumo",
+                    "grupos"
+                  ],
+                  "additionalProperties": false
+                },
+                "example": {
+                  "periodo": "2026S2",
+                  "curso": {
+                    "codigo": "DS",
+                    "nome": "Desenvolvimento de Sistemas",
+                    "habilitacao": "Técnico em Desenvolvimento de Sistemas",
+                    "grade": "Matriz 2023",
+                    "turno": "Noite"
+                  },
+                  "situacao": {
+                    "codigo": "20",
+                    "descricao": "Matriculado"
+                  },
+                  "ingresso": {
+                    "data": "2023-02-06",
+                    "forma": "Processo seletivo"
+                  },
+                  "cr": null,
+                  "mediaGlobal": 8.4,
+                  "cargaHoraria": {
+                    "curso": 1200,
+                    "grade": 1200,
+                    "integralizada": 640,
+                    "concluida": 640
+                  },
+                  "resumo": {
+                    "obrigatorias": {
+                      "medida": "Número",
+                      "total": 20,
+                      "concluidas": 11,
+                      "pendentes": 9
+                    },
+                    "optativas": {
+                      "medida": "Carga horária",
+                      "total": 0,
+                      "concluidas": 0,
+                      "pendentes": 0
+                    },
+                    "eletivas": {
+                      "medida": "Carga horária",
+                      "total": 0,
+                      "concluidas": 0,
+                      "pendentes": 0
+                    },
+                    "atividadesCurriculares": {
+                      "medida": "Carga horária",
+                      "total": 60,
+                      "concluidas": 40,
+                      "pendentes": 20
+                    },
+                    "extensao": null
+                  },
+                  "grupos": [
+                    {
+                      "codigo": 1,
+                      "nome": "1° Semestre",
+                      "tipo": {
+                        "codigo": 1,
+                        "descricao": "Obrigatórias"
+                      },
+                      "cargaHorariaIntegralizada": 60,
+                      "disciplinas": [
+                        {
+                          "codigo": "LP1",
+                          "nome": "Lógica de Programação",
+                          "situacao": "concluida",
+                          "status": "Aprovado",
+                          "periodo": "2023S1",
+                          "nota": 8.5,
+                          "conceito": null,
+                          "faltas": 4,
+                          "creditos": 60,
+                          "cargaHoraria": 60,
+                          "cargaHorariaIntegralizada": 60,
+                          "modalidade": null,
+                          "idTurmaDisc": 40112,
+                          "idPeriodo": 2351
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`parametro_invalido`: Um parâmetro está faltando, sobrando ou com o tipo errado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "parametro_invalido": {
+                    "summary": "parametro_invalido",
+                    "value": {
+                      "erro": "parametro_invalido",
+                      "mensagem": "Um parâmetro está faltando, sobrando ou com o tipo errado."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`token_invalido`: O token local está ausente ou errado. Entre de novo pela documentação (/docs/) para receber um novo.\n\n`login_falhou`: O portal não completou o login. Confira o usuário e a senha.\n\n`sessao_expirada`: O portal recusou a sessão, e um novo login não resolveu.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "token_invalido": {
+                    "summary": "token_invalido",
+                    "value": {
+                      "erro": "token_invalido",
+                      "mensagem": "O token local está ausente ou errado. Entre de novo pela documentação (/docs/) para receber um novo."
+                    }
+                  },
+                  "login_falhou": {
+                    "summary": "login_falhou",
+                    "value": {
+                      "erro": "login_falhou",
+                      "mensagem": "O portal não completou o login. Confira o usuário e a senha."
+                    }
+                  },
+                  "sessao_expirada": {
+                    "summary": "sessao_expirada",
+                    "value": {
+                      "erro": "sessao_expirada",
+                      "mensagem": "O portal recusou a sessão, e um novo login não resolveu."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`portal_recusou`: O portal negou o acesso (HTTP 403). A API repassa a recusa e não tenta outro caminho.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "portal_recusou": {
+                    "summary": "portal_recusou",
+                    "value": {
+                      "erro": "portal_recusou",
+                      "mensagem": "O portal negou o acesso (HTTP 403). A API repassa a recusa e não tenta outro caminho."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`periodo_inexistente`: A conta não tem matrícula no período pedido. Os períodos estão em /periodos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "periodo_inexistente": {
+                    "summary": "periodo_inexistente",
+                    "value": {
+                      "erro": "periodo_inexistente",
+                      "mensagem": "A conta não tem matrícula no período pedido. Os períodos estão em /periodos."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`erro_interno`: Erro no servidor local. Veja o terminal onde ele está rodando.\n\n`configuracao_invalida`: A configuração não combina com o que o portal retornou (alias ou período).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "erro_interno": {
+                    "summary": "erro_interno",
+                    "value": {
+                      "erro": "erro_interno",
+                      "mensagem": "Erro no servidor local. Veja o terminal onde ele está rodando."
+                    }
+                  },
+                  "configuracao_invalida": {
+                    "summary": "configuracao_invalida",
+                    "value": {
+                      "erro": "configuracao_invalida",
+                      "mensagem": "A configuração não combina com o que o portal retornou (alias ou período)."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`sem_contexto`: O portal pediu um contexto de matrícula que a sessão não tem.\n\n`erro_do_portal`: O portal retornou um erro dentro da resposta.\n\n`resposta_inesperada`: A resposta do portal não tem o formato documentado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "sem_contexto": {
+                    "summary": "sem_contexto",
+                    "value": {
+                      "erro": "sem_contexto",
+                      "mensagem": "O portal pediu um contexto de matrícula que a sessão não tem."
+                    }
+                  },
+                  "erro_do_portal": {
+                    "summary": "erro_do_portal",
+                    "value": {
+                      "erro": "erro_do_portal",
+                      "mensagem": "O portal retornou um erro dentro da resposta."
+                    }
+                  },
+                  "resposta_inesperada": {
+                    "summary": "resposta_inesperada",
+                    "value": {
+                      "erro": "resposta_inesperada",
+                      "mensagem": "A resposta do portal não tem o formato documentado."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "`portal_indisponivel`: Não foi possível falar com o portal: sem conexão, tempo esgotado ou erro 5xx.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                },
+                "examples": {
+                  "portal_indisponivel": {
+                    "summary": "portal_indisponivel",
+                    "value": {
+                      "erro": "portal_indisponivel",
+                      "mensagem": "Não foi possível falar com o portal: sem conexão, tempo esgotado ou erro 5xx."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-upstream": [
+          "TOTVSEducacional/GradeCurricular/EnsinoSuperior"
+        ]
+      }
+    },
     "/horario": {
       "get": {
         "operationId": "obterHorario",

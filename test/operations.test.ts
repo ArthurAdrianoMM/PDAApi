@@ -6,7 +6,9 @@ import { obterHorario } from '../src/operations/horario.js';
 import { obterNotas } from '../src/operations/notas.js';
 import { obterFaltas } from '../src/operations/faltas.js';
 import { listarFaltasPorAula } from '../src/operations/faltas-aulas.js';
+import { obterGradeCurricular } from '../src/operations/grade-curricular.js';
 import { listarPeriodos } from '../src/operations/periodos.js';
+import { GRADE_CURRICULAR } from './fixtures/grade-curricular.js';
 import { CONTEXT_COOKIE, academicRoute, contextRoute, createTestSession, type DataRoute } from './support/fake-portal.js';
 
 const CONTEXT_ID = 'ctx+B/2==';
@@ -435,6 +437,7 @@ describe('periodo', () => {
     { op: listarFaltasPorAula, path: 'TOTVSEducacional/Aluno/Falta/Aula', data: { SFREQUENCIAALUNO: [] } },
     { op: obterHorario, path: 'TOTVSEducacional/QuadroHorarioAluno', data: { SHorarioAluno: [] } },
     { op: listarAulas, path: 'TOTVSEducacional/v1/planoaulas/aulas', data: { SPlanoAula: [] } },
+    { op: obterGradeCurricular, path: 'TOTVSEducacional/GradeCurricular/EnsinoSuperior', data: GRADE_CURRICULAR },
   ];
 
   it.each(cases.map((c) => [c.op.id, c] as const))('%s answers for the period asked, with its context cookie', async (_, { op, path, data }) => {
@@ -576,5 +579,76 @@ describe('listarAulas', () => {
     await expect(runOperation(listarAulas, session, { de: '2026-10-01', ate: '2026-11-01' })).rejects.toMatchObject({
       issues: [expect.objectContaining({ path: ['ate'] })],
     });
+  });
+});
+
+describe('obterGradeCurricular', () => {
+  const sessionFor = () => sessionWith({ 'TOTVSEducacional/GradeCurricular/EnsinoSuperior': academicRoute(CONTEXT_ID, GRADE_CURRICULAR) });
+
+  it('maps the course summary, with decimal-comma numbers as numbers', async () => {
+    const { session } = sessionFor();
+    const result = await runOperation(obterGradeCurricular, session, {});
+    expect(result).toMatchObject({
+      periodo: '2026S2',
+      curso: { codigo: 'DS', nome: 'Desenvolvimento de Sistemas', habilitacao: 'Técnico em Desenvolvimento de Sistemas', grade: 'Matriz 2023', turno: 'Noite' },
+      situacao: { codigo: '20', descricao: 'Matriculado' },
+      ingresso: { data: '2023-02-06', forma: 'Processo seletivo' },
+      cr: null,
+      mediaGlobal: 8.4,
+      cargaHoraria: { curso: 1200, grade: 1200, integralizada: 160, concluida: 160 },
+      resumo: {
+        obrigatorias: { medida: 'Número', total: 4, concluidas: 2, pendentes: 2 },
+        atividadesCurriculares: { medida: 'Carga horária', total: 60, concluidas: 40, pendentes: 20 },
+        extensao: null,
+      },
+    });
+  });
+
+  it('groups the disciplines in the portal order and leaves out the rows that are only text', async () => {
+    const { session } = sessionFor();
+    const { grupos } = await runOperation(obterGradeCurricular, session, {});
+
+    expect(grupos.map((g) => [g.codigo, g.nome, g.tipo.codigo, g.cargaHorariaIntegralizada, g.disciplinas.map((d) => d.codigo)])).toEqual([
+      [1, '1° Semestre', 1, 160, ['LP1', 'IC1']],
+      [2, '2° Semestre', 1, 0, ['PW2', 'BD1', 'ES1']],
+      [98, 'Eletivas/Optativas', 3, 0, []],
+      [100, 'Componente curricular: ATIVIDADES COMPLEMENTARES', 4, 40, [null]],
+    ]);
+    expect(grupos[0]!.disciplinas[0]).toEqual({
+      codigo: 'LP1',
+      nome: 'Lógica de Programação',
+      situacao: 'concluida',
+      status: 'Aprovado',
+      periodo: '2023S1',
+      nota: 8.5,
+      conceito: null,
+      faltas: 4,
+      creditos: 60,
+      cargaHoraria: 60,
+      cargaHorariaIntegralizada: 60,
+      modalidade: null,
+      idTurmaDisc: 40112,
+      idPeriodo: 2351,
+    });
+    expect(grupos[1]!.disciplinas.map((d) => [d.situacao, d.status, d.periodo, d.nota])).toEqual([
+      ['em_curso', 'Matriculado', '2026S2', null],
+      ['pendente', 'Cancelado', '2025S2', null],
+      ['pendente', null, null, null],
+    ]);
+    expect(grupos[3]!.disciplinas[0]).toMatchObject({ nome: 'Monitoria de Lógica', modalidade: '1.1 Monitoria', situacao: 'concluida' });
+  });
+
+  it('keeps one situation, like the portal tabs, dropping the groups left empty', async () => {
+    const { session } = sessionFor();
+    const { grupos } = await runOperation(obterGradeCurricular, session, { situacao: 'pendente' });
+    expect(grupos.map((g) => [g.codigo, g.disciplinas.map((d) => d.codigo)])).toEqual([[2, ['BD1', 'ES1']]]);
+    await expect(runOperation(obterGradeCurricular, session, { situacao: 'aprovada' })).rejects.toMatchObject({ name: 'ZodError' });
+  });
+
+  it('reports a number in a format the page would misread', async () => {
+    const broken = structuredClone(GRADE_CURRICULAR);
+    (broken.APRESENTACAOHISTORICO[0] as Record<string, unknown>).CH = '60.5';
+    const { session } = sessionWith({ 'TOTVSEducacional/GradeCurricular/EnsinoSuperior': academicRoute(CONTEXT_ID, broken) });
+    await expect(runOperation(obterGradeCurricular, session, {})).rejects.toMatchObject({ code: 'resposta_inesperada' });
   });
 });
