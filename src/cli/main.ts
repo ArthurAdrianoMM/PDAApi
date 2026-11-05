@@ -2,22 +2,28 @@
 import { parseArgs } from 'node:util';
 import { isPortalError } from '../core/index.js';
 import { VERSION } from '../version.js';
+import { mcpCommand } from './mcp.js';
 import { serveCommand } from './serve.js';
 
 const HELP = `portal-aluno ${VERSION}: seus dados do Portal do Aluno, numa API local.
 
 Uso:
   portal-aluno serve [--port 4321] [--period 2026S2]
+  portal-aluno mcp [--period 2026S2]
 
 Comandos:
   serve        Serve a API e a documentação em 127.0.0.1.
+  mcp          Servidor MCP no stdio, para agentes de IA. Quem o inicia é o cliente MCP.
 
-Opções de serve:
-  --port       Porta local (padrão 4321).
+Opções:
+  --port       Porta local de serve (padrão 4321).
   --period     Período da matrícula a usar (CODPERLET). Padrão: a matrícula mais recente.
 
-Entre com usuário e senha na documentação. Com PORTAL_ALUNO_USER e PORTAL_ALUNO_PASSWORD
+serve: entre com usuário e senha na documentação. Com PORTAL_ALUNO_USER e PORTAL_ALUNO_PASSWORD
 definidos, o servidor já entra no portal ao iniciar.
+
+mcp: lê PORTAL_ALUNO_USER e PORTAL_ALUNO_PASSWORD, definidos na configuração do cliente MCP,
+e entra no portal na primeira chamada de ferramenta. Veja docs/MCP.md.
 `;
 
 function fail(message: string): never {
@@ -47,6 +53,10 @@ async function main(argv: string[]): Promise<void> {
       const port = Number(values.port ?? 4321);
       if (!Number.isInteger(port) || port < 1 || port > 65535) fail('--port precisa ser um número entre 1 e 65535.');
       return serveCommand({ port, ...(values.period === undefined ? {} : { period: values.period }) });
+    }
+    case 'mcp': {
+      if (values.port !== undefined) fail('--port vale só para serve: o servidor MCP fala pelo stdio.');
+      return mcpCommand(values.period === undefined ? {} : { period: values.period });
     }
     default:
       fail(`Comando desconhecido: ${command}\n\n${HELP}`);
