@@ -27,7 +27,6 @@ const API_DESCRIPTION = [
   '**Autenticação:** entre com o usuário e a senha do portal na documentação (`/docs/`), ou envie ' +
     '`POST /sessao` com `{"usuario", "senha"}` em JSON. A resposta traz um token; envie-o como ' +
     '`Authorization: Bearer <token>`. Um novo login invalida o token anterior.',
-  'Projeto de aula, não oficial. Sem vínculo com o SENAI ou a FIEB.',
 ].join('\n\n');
 
 /** Errors any operation can return, besides the portal's. */

@@ -126,7 +126,6 @@ export function Sidebar({ model, route, results, connection }: SidebarProps) {
           </a>
         )}
       </div>
-      <p className="sidebar__note">Projeto de aula, não oficial. Sem vínculo com o SENAI ou a FIEB.</p>
     </nav>
   );
 }
