@@ -1,6 +1,6 @@
 import { useEffect, useRef, type KeyboardEvent } from 'react';
-import { loginHref, type Connection, type Route, type Theme } from '../state';
-import { DownloadIcon, LogOutIcon, MoonIcon, SearchIcon, SunIcon, UserIcon } from './Icons';
+import { loginHref, type Connection, type Route } from '../state';
+import { DownloadIcon, LogOutIcon, SearchIcon, UserIcon } from './Icons';
 
 /** Top right: who is logged in, or the way to the login screen. */
 function Account({ connection, route }: { connection: Connection; route: Route }) {
@@ -46,11 +46,9 @@ interface TopBarProps {
   onSubmitQuery: () => void;
   connection: Connection;
   route: Route;
-  theme: Theme;
-  onToggleTheme: () => void;
 }
 
-export function TopBar({ title, version, query, onQuery, onSubmitQuery, connection, route, theme, onToggleTheme }: TopBarProps) {
+export function TopBar({ title, version, query, onQuery, onSubmitQuery, connection, route }: TopBarProps) {
   const header = useRef<HTMLElement>(null);
   const input = useRef<HTMLInputElement>(null);
 
@@ -114,14 +112,6 @@ export function TopBar({ title, version, query, onQuery, onSubmitQuery, connecti
           <DownloadIcon size={15} />
           openapi.json
         </a>
-        <button
-          type="button"
-          className="icon-btn"
-          onClick={onToggleTheme}
-          aria-label={theme === 'dark' ? 'Usar tema claro' : 'Usar tema escuro'}
-        >
-          {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
-        </button>
         <Account connection={connection} route={route} />
       </div>
     </header>

@@ -1,6 +1,6 @@
 /**
  * Browser-side state: the login and its token, the connection to the local
- * server, the hash route and the theme.
+ * server and the hash route.
  */
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { parseRoute, type Route } from './lib/route';
@@ -204,28 +204,6 @@ function subscribeHash(onChange: () => void): () => void {
 export function useRoute(): Route {
   const hash = useSyncExternalStore(subscribeHash, () => location.hash);
   return parseRoute(hash);
-}
-
-// ── Theme ───────────────────────────────────────────────────────────
-
-export type Theme = 'dark' | 'light';
-const THEME_KEY = 'portal-aluno-theme';
-
-export function useTheme(): [Theme, () => void] {
-  const [theme, setTheme] = useState<Theme>(() =>
-    storageGet(() => localStorage, THEME_KEY) === 'light' ? 'light' : 'dark',
-  );
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-  }, [theme]);
-  const toggle = useCallback(() => {
-    setTheme((current) => {
-      const next = current === 'dark' ? 'light' : 'dark';
-      storageSet(() => localStorage, THEME_KEY, next);
-      return next;
-    });
-  }, []);
-  return [theme, toggle];
 }
 
 // ── Sidebar groups ──────────────────────────────────────────────────

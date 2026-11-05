@@ -1,31 +1,22 @@
 import { useState, type FormEvent } from 'react';
-import artDark from '../assets/study-breeze-gold-vazado.webp';
-import artDarkStill from '../assets/study-breeze-gold-vazado-still.png';
-import artLight from '../assets/study-breeze-imperial-blue.webp';
-import artLightStill from '../assets/study-breeze-imperial-blue-still.png';
-import type { Connection, Theme } from '../state';
+import art from '../assets/study-breeze-gold-vazado.webp';
+import artStill from '../assets/study-breeze-gold-vazado-still.png';
+import type { Connection } from '../state';
 import { ArrowRightIcon, EyeIcon, EyeOffIcon, LockIcon, ShieldIcon, SpinnerIcon, UserIcon } from './Icons';
-
-const ART = {
-  dark: { animated: artDark, still: artDarkStill },
-  light: { animated: artLight, still: artLightStill },
-};
 
 interface LoginPageProps {
   title: string;
   version: string;
-  theme: Theme;
   connection: Connection;
   /** Where to go after logging in, or when continuing without an account. */
   voltar: string;
 }
 
-export function LoginPage({ title, version, theme, connection, voltar }: LoginPageProps) {
+export function LoginPage({ title, version, connection, voltar }: LoginPageProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const art = ART[theme];
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -51,8 +42,8 @@ export function LoginPage({ title, version, theme, connection, voltar }: LoginPa
       </aside>
 
       <picture className="login__art">
-        <source media="(prefers-reduced-motion: reduce)" srcSet={art.still} />
-        <img src={art.animated} alt="" width={720} height={720} />
+        <source media="(prefers-reduced-motion: reduce)" srcSet={artStill} />
+        <img src={art} alt="" width={720} height={720} />
       </picture>
 
       <main className="login__main">
