@@ -1,8 +1,18 @@
 {
   "name": "portal-aluno",
   "version": "0.1.0",
-  "private": true,
   "description": "Read-only local API for the SENAI Portal do Aluno (TOTVS RM Portal Educacional).",
+  "keywords": [
+    "senai",
+    "portal-do-aluno",
+    "mcp",
+    "mcp-server",
+    "totvs"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ArthurAdrianoMM/PDAApi.git"
+  },
   "type": "module",
   "bin": {
     "portal-aluno": "dist/cli/main.js"
@@ -24,7 +34,9 @@
     "try": "tsx scripts/try.ts",
     "probe": "tsx scripts/probe.ts",
     "typecheck": "tsc --noEmit && tsc --noEmit -p web",
-    "test": "vitest run"
+    "test": "vitest run",
+    "pack:mcpb": "npm run build && tsx scripts/pack-mcpb.ts",
+    "prepublishOnly": "npm test && npm run build"
   },
   "dependencies": {
     "@hono/node-server": "2.1.5",
