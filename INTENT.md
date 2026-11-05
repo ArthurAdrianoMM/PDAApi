@@ -28,6 +28,7 @@ The student who owns the account (the project author). It is not for other stude
 ## How the API will behave
 
 - Hold the portal session in memory. Do not write portal tokens or cookies to disk. The one exception is the local API token, which the browser keeps in `localStorage` only when the student ticks "Lembrar de mim"; it opens nothing once the server restarts.
+- The MCP server (`portal-aluno mcp`) reads the password from environment variables that the student's MCP client passes to it. Most clients keep those variables in their own config file, in plain text, which the student writes there themselves; Claude Desktop (through the `.mcpb` bundle) and VS Code (through a password input) keep it in secure storage instead. This project still writes the password nowhere. See [docs/MCP.md](docs/MCP.md).
 - Keep request volume close to what one student's browser would make.
 - Mask personal values (name, CPF, address, contact details) in logs and examples.
 

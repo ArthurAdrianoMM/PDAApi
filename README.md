@@ -2,7 +2,7 @@
 
 A read-only API for your own data in the SENAI Portal do Aluno. It runs on your computer and talks to the portal with your account. No other server is involved.
 
-Class project, not official, not affiliated with SENAI or FIEB. Scope and limits: [INTENT.md](INTENT.md). What the portal exposes: [ENDPOINTS.md](ENDPOINTS.md).
+Class project, not official, not affiliated with SENAI or FIEB. Scope and limits: [INTENT.md](INTENT.md). What the portal exposes: [ENDPOINTS.md](ENDPOINTS.md). The MCP server's design: [docs/MCP.md](docs/MCP.md).
 
 ## Status
 
@@ -11,7 +11,7 @@ Class project, not official, not affiliated with SENAI or FIEB. Scope and limits
 - [x] OpenAPI 3.1 document generated from the operations ([openapi.json](openapi.json))
 - [x] Local server (`portal-aluno serve`)
 - [x] Docs page with "testar", built from `openapi.json` (`web/`)
-- [ ] MCP server
+- [x] MCP server for AI agents, over stdio (`portal-aluno mcp`). Phases: [docs/MCP.md](docs/MCP.md)
 
 ## Requirements
 
@@ -44,6 +44,70 @@ Documentação: http://127.0.0.1:4321/docs/#token=…
 Token:        …
 ```
 
+## Use with AI agents (MCP)
+
+`portal-aluno mcp` is an [MCP](https://modelcontextprotocol.io) server: every operation of the API becomes a tool that Claude, Codex, Cursor, VS Code and other agents can call. The client starts it on your computer; it talks to the portal with your account, like `serve`.
+
+It reads your portal user and password from `PORTAL_ALUNO_USER` and `PORTAL_ALUNO_PASSWORD`, which the client passes to it. It starts without contacting the portal and logs in on the first tool call, so a missing variable or a wrong password shows up in the chat as an error the agent can explain. After the portal refuses the password once, it stops trying until restarted, so it can't lock your account.
+
+> Until the package is on npm, replace `npx -y portal-aluno mcp` below with `node <this folder>/dist/cli/main.js mcp` (after `npm run build`).
+
+**Claude Desktop.** Run `npm run pack:mcpb` and open `portal-aluno-<version>.mcpb`. Claude Desktop asks for the user and password and keeps the password in its secure storage.
+
+**Claude Code.**
+
+```sh
+claude mcp add portal-aluno -e PORTAL_ALUNO_USER=<usuário> -e PORTAL_ALUNO_PASSWORD=<senha> -- npx -y portal-aluno mcp
+```
+
+**VS Code** (`.vscode/mcp.json`). VS Code asks for the password and keeps it in its secure storage:
+
+```json
+{
+  "inputs": [
+    { "type": "promptString", "id": "portal-usuario", "description": "Usuário do Portal do Aluno" },
+    { "type": "promptString", "id": "portal-senha", "description": "Senha do Portal do Aluno", "password": true }
+  ],
+  "servers": {
+    "portal-aluno": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "portal-aluno", "mcp"],
+      "env": { "PORTAL_ALUNO_USER": "${input:portal-usuario}", "PORTAL_ALUNO_PASSWORD": "${input:portal-senha}" }
+    }
+  }
+}
+```
+
+**Cursor, Gemini CLI and other clients** that take an `mcpServers` JSON:
+
+```json
+{
+  "mcpServers": {
+    "portal-aluno": {
+      "command": "npx",
+      "args": ["-y", "portal-aluno", "mcp"],
+      "env": { "PORTAL_ALUNO_USER": "<usuário>", "PORTAL_ALUNO_PASSWORD": "<senha>" }
+    }
+  }
+}
+```
+
+**Codex** (`~/.codex/config.toml`), also used by Codex inside the ChatGPT desktop app:
+
+```toml
+[mcp_servers.portal-aluno]
+command = "npx"
+args = ["-y", "portal-aluno", "mcp"]
+env = { PORTAL_ALUNO_USER = "<usuário>", PORTAL_ALUNO_PASSWORD = "<senha>" }
+```
+
+Add `"--period", "2026S1"` after `"mcp"` to answer about another enrollment by default.
+
+Except for Claude Desktop and VS Code, the client keeps the password in its config file, in plain text. That file is yours, and nothing in this project writes it. ChatGPT on the web only connects to servers on the internet, so it can't use this one.
+
+Every tool only reads. The tools say so to the client (`readOnlyHint`), so most clients run them without asking each time.
+
 ## How the local server stays local
 
 - It listens on `127.0.0.1` only.
@@ -64,6 +128,7 @@ npm test            # unit tests against an in-memory fake portal, no network
 npm run typecheck
 npm run openapi     # regenerate openapi.json after changing an operation (a test fails if you forget)
 npm run build       # docs page to dist/web, server to dist/
+npm run pack:mcpb   # the Claude Desktop bundle, portal-aluno-<version>.mcpb
 ```
 
 Work on the docs page without logging in to the real portal:
@@ -73,6 +138,16 @@ npm run dev:fake    # the real server against the fake portal (made-up data), to
 npm run dev:web     # in another terminal: the page with hot reload, at http://localhost:5173/docs/#token=dev
                     # the login screen accepts the fake account: aluno.teste / s3nha&com=símbolos
 ```
+
+Try the MCP tools without the real portal. The server logs in to the fake portal by itself, so the client needs no credentials:
+
+```sh
+npm run -s dev:mcp:fake                     # MCP server on stdio, made-up data; -s keeps npm's banner off stdout
+npm run -s dev:mcp:fake -- --senha-errada   # the same, with a refused login
+claude mcp add portal-aluno-fake -- npm --prefix "$PWD" run -s dev:mcp:fake
+```
+
+In the [MCP Inspector](https://github.com/modelcontextprotocol/inspector), connect to the command `npm run -s dev:mcp:fake` in this folder. Don't give the Inspector your real credentials: it saves the `env` values of stdio servers.
 
 Run one operation against the real portal, without the server:
 
@@ -114,14 +189,19 @@ src/
     tls.ts         the intermediate certificate the portal leaves out of its chain
     response.ts    status handling, envelope, schema validation
     errors.ts      PortalError and its codes
+  api/           what the HTTP and MCP adapters share: error bodies, JSON Schema
   operations/    one file per endpoint of this API: docs, schemas, handler
   openapi/       builds the OpenAPI document from the operations
   http/          the local server (Hono): routes, login and token, errors, docs page
-  cli/           `portal-aluno` command and terminal prompts
+  mcp/           the MCP server: operations as tools, results, the stdio session (docs/MCP.md)
+  cli/           `portal-aluno` command (serve, mcp) and terminal prompts
+  env.ts         the credentials in the environment
 web/             the docs page (React + Vite). Reads /openapi.json; knows nothing else about the API
   src/lib/       pure logic: spec model, Markdown subset, fields, samples, search (tested in test/web.test.ts)
   src/components/
-scripts/         dev runner (try.ts), shape probe (probe.ts), openapi.json writer, fake-portal server (fake-serve.ts)
+scripts/         dev runner (try.ts), shape probe (probe.ts), openapi.json writer, fake-portal servers (fake-serve.ts,
+                 fake-mcp.ts, with demo-portal.ts), Claude Desktop bundle (pack-mcpb.ts)
+docs/            design notes (MCP.md)
 test/            Vitest, with an in-memory fake portal (test/support) and made-up portal answers (test/fixtures)
 ```
 
@@ -131,7 +211,7 @@ test/            Vitest, with an in-memory fake portal (test/support) and made-u
 2. Add `src/operations/<name>.ts` with `defineOperation`: the upstream schema (only the fields you use, types as recorded), the output schema with `.describe()` on each field, a made-up `example`, callouts for anything surprising, and the handler.
 3. Register it in `src/operations/index.ts`.
 4. Add a test in `test/operations.test.ts` using `academicRoute` from the fake portal.
-5. Run `npm run openapi`. The route, the docs page and the spec update from the definition.
+5. Run `npm run openapi`. The route, the MCP tool, the docs page and the spec update from the definition. If the operation answers for one of the demo portal's routes, add it to `scripts/demo-portal.ts`, and its required arguments to `ARGS` in `test/mcp.test.ts`.
 
 ## Rules the code follows
 
