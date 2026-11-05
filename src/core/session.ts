@@ -8,10 +8,10 @@ import {
   type CurrentUser,
 } from './auth.js';
 import { CONTEXT_COOKIE, DEFAULT_CONFIG, type PortalConfig } from './config.js';
-import { listContexts, pickContext, toActiveContext, type ActiveContext } from './context.js';
+import { listContexts, pickContext, toActiveContext, type ActiveContext, type ContextRecord } from './context.js';
 import { PortalError, isPortalError } from './errors.js';
-import { PortalHttp, type FetchFn } from './http.js';
-import { assertOk, parseJson, readEnvelope } from './response.js';
+import { PortalHttp, type FetchFn, type PortalRequest } from './http.js';
+import { assertOk, parseJson, readEnvelope, readFile, type PortalFile } from './response.js';
 import { apiUrl, type QueryValue } from './url.js';
 
 export interface PortalSessionOptions {
@@ -23,7 +23,26 @@ export interface PortalSessionOptions {
 
 export interface SessionState {
   user: CurrentUser;
+  /** The enrollment requests use unless they ask for another period. */
   context: ActiveContext;
+  /** Every enrollment of the account, in the portal's order. */
+  contexts: ActiveContext[];
+}
+
+export interface RequestOptions {
+  /**
+   * Period code (`CODPERLET`) of the enrollment to ask about. The context
+   * cookie of that enrollment goes with this request only. Default: the
+   * session's enrollment.
+   */
+  periodo?: string | undefined;
+  /**
+   * A query parameter that carries the enrollment's context ID, for the few
+   * endpoints that take it in the URL as well (ENDPOINTS.md 4.8). The ID stays
+   * inside the session; the caller only names the parameter. It is sent as the
+   * page sends it: `encodeURI` first, then URL-encoded as a query value.
+   */
+  contextParam?: string;
 }
 
 /**
@@ -38,6 +57,8 @@ export class PortalSession {
   readonly #http: PortalHttp;
   readonly #credentials: CredentialsProvider;
   #state: SessionState | null = null;
+  /** The enrollment records, with their opaque context IDs. Never leave the session. */
+  #records: ContextRecord[] = [];
   #pendingLogin: Promise<SessionState> | null = null;
   /** Bumped on each login, so concurrent calls that hit an expired session log in once. */
   #generation = 0;
@@ -71,6 +92,7 @@ export class PortalSession {
   /** Forgets the session locally. The portal is not told (its `Logout` is avoided on purpose). */
   forget(): void {
     this.#state = null;
+    this.#records = [];
     this.#http.clearCookies();
   }
 
@@ -78,17 +100,66 @@ export class PortalSession {
    * GETs an API path that answers with the standard envelope and returns its
    * validated `data`. `path` is relative to `/FrameHTML/RM/API/`.
    */
-  getData<S extends z.ZodType>(path: string, query: Record<string, QueryValue>, schema: S): Promise<z.output<S>> {
+  getData<S extends z.ZodType>(
+    path: string,
+    query: Record<string, QueryValue>,
+    schema: S,
+    options: RequestOptions = {},
+  ): Promise<z.output<S>> {
     return this.#withSession(async () => {
-      const res = await this.#http.request({ method: 'GET', url: apiUrl(this.config.baseUrl, path, query) });
+      const res = await this.#http.request(this.#get(path, query, options));
       assertOk(res, path);
       return readEnvelope(parseJson(res, path), schema, path);
+    });
+  }
+
+  /**
+   * GETs an API path that answers with a file, such as a download. Session
+   * expiry and portal errors are handled as in `getData`.
+   */
+  getFile(path: string, query: Record<string, QueryValue>, options: RequestOptions = {}): Promise<PortalFile> {
+    return this.#withSession(async () => {
+      const res = await this.#http.requestBytes(this.#get(path, query, options));
+      assertOk(res, path);
+      return readFile(res, path);
     });
   }
 
   /** Returns the current session, logging in first when there is none. */
   async ensureSession(): Promise<SessionState> {
     return this.#state ?? this.login();
+  }
+
+  /**
+   * The enrollment a request with this `periodo` asks about, logging in first
+   * when needed. Throws `periodo_inexistente` for a period the account has no
+   * enrollment in.
+   */
+  async contextFor(periodo?: string): Promise<ActiveContext> {
+    const { context } = await this.ensureSession();
+    if (periodo === undefined) return context;
+    return toActiveContext(this.#record(periodo));
+  }
+
+  /** A GET for the enrollment the options ask about. Runs inside `#withSession`, so after a new login it reads the new records. */
+  #get(path: string, query: Record<string, QueryValue>, options: RequestOptions): PortalRequest {
+    const record = this.#record(options.periodo);
+    // The page sends `encodeURI(id)`, which its query serializer then encodes again (ENDPOINTS.md 4.8).
+    const fullQuery = options.contextParam ? { ...query, [options.contextParam]: encodeURI(record.IDCONTEXTOALUNO) } : query;
+    return {
+      method: 'GET',
+      url: apiUrl(this.config.baseUrl, path, fullQuery),
+      // The jar holds the session's enrollment; another one goes with this request only.
+      ...(record.CODPERLET === this.#state?.context.codPerLet ? {} : { cookies: { [CONTEXT_COOKIE]: record.IDCONTEXTOALUNO } }),
+    };
+  }
+
+  #record(periodo: string | undefined): ContextRecord {
+    const codPerLet = periodo ?? this.#state?.context.codPerLet;
+    const record = this.#records.find((r) => r.CODPERLET === codPerLet);
+    if (record) return record;
+    const available = this.#records.map((r) => r.CODPERLET).join(', ') || 'nenhum';
+    throw new PortalError('periodo_inexistente', `Não há matrícula no período ${codPerLet}. Períodos desta conta: ${available}.`);
   }
 
   /** Runs a task once, and once more after logging in again if the portal rejected the session. */
@@ -127,10 +198,12 @@ export class PortalSession {
       });
     }
 
-    const record = pickContext(await listContexts(http, config), config.codPerLet);
+    const records = await listContexts(http, config);
+    const record = pickContext(records, config.codPerLet);
     await http.setCookie(CONTEXT_COOKIE, record.IDCONTEXTOALUNO);
 
-    this.#state = { user, context: toActiveContext(record) };
+    this.#records = records;
+    this.#state = { user, context: toActiveContext(record), contexts: records.map(toActiveContext) };
     this.#generation += 1;
     return this.#state;
   }

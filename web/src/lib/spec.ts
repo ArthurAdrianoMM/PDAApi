@@ -71,6 +71,8 @@ export interface DocOperation {
   parameters: Parameter[];
   output: JsonSchema;
   example: unknown;
+  /** Set when the endpoint answers with a file instead of JSON. */
+  file: { mediaTypes: string[]; description: string } | null;
   errors: ErrorInfo[];
   upstream: string[];
 }
@@ -98,6 +100,7 @@ const JSON_TYPE = 'application/json';
 function toOperation(path: string, method: string, op: OperationObject): DocOperation {
   const responses = op.responses ?? {};
   const ok = responses['200']?.content?.[JSON_TYPE];
+  const okTypes = Object.keys(responses['200']?.content ?? {});
 
   const errors: ErrorInfo[] = [];
   for (const [status, response] of Object.entries(responses)) {
@@ -125,6 +128,7 @@ function toOperation(path: string, method: string, op: OperationObject): DocOper
       })),
     output: ok?.schema ?? {},
     example: ok?.example,
+    file: ok || okTypes.length === 0 ? null : { mediaTypes: okTypes, description: responses['200']?.description ?? '' },
     errors: errors.sort((a, b) => a.status - b.status),
     upstream: op['x-upstream'] ?? [],
   };

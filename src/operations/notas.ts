@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { codeLike } from '../core/schemas.js';
 import { defineOperation } from './define.js';
+import { periodoInput, periodoOutput } from './periodo.js';
 import { readStageColumns } from './stages.js';
 
 const avaliacaoSchema = z.object({
@@ -46,8 +47,8 @@ export const obterNotas = defineOperation({
   tag: 'Desempenho',
   summary: 'Notas',
   description:
-    'Retorna as notas de cada disciplina da matrícula que a sessão está usando, ' +
-    'com uma entrada por avaliação. O período respondido vem em `periodo`.',
+    'Retorna as notas de cada disciplina de um período, com uma entrada por avaliação. ' +
+    'Sem `periodo`, responde sobre a matrícula da sessão. O período respondido vem em `periodo`.',
   callouts: [
     {
       kind: 'warning',
@@ -66,9 +67,9 @@ export const obterNotas = defineOperation({
     },
   ],
   upstream: ['TOTVSEducacional/NotaEtapa'],
-  input: z.object({}),
+  input: z.object({ periodo: periodoInput }),
   output: z.object({
-    periodo: z.string().describe('Código do período da matrícula da sessão (ex.: `2026S2`).'),
+    periodo: periodoOutput,
     disciplinas: z.array(disciplinaSchema),
   }),
   example: {
@@ -87,10 +88,10 @@ export const obterNotas = defineOperation({
       },
     ],
   },
-  async handler(session) {
-    const { context } = await session.ensureSession();
+  async handler(session, { periodo }) {
+    const context = await session.contextFor(periodo);
     // No parameters: the portal answers for the context in the cookie (ENDPOINTS.md 4.3).
-    const data = await session.getData('TOTVSEducacional/NotaEtapa', {}, upstreamSchema);
+    const data = await session.getData('TOTVSEducacional/NotaEtapa', {}, upstreamSchema, { periodo });
     return { periodo: context.codPerLet, disciplinas: data.Notas };
   },
 });

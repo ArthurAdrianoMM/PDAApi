@@ -7,16 +7,15 @@ Class project, not official, not affiliated with SENAI or FIEB. Scope and limits
 ## Status
 
 - [x] Core client: login, context cookie, re-login on expiry, rate limit (`src/core`)
-- [x] Operations: `/periodos`, `/disciplinas`, `/notas`, `/faltas`, `/faltas/aulas`, `/horario` (`src/operations`)
+- [x] Operations: `/eu`, `/eu/foto`, `/periodos`, `/disciplinas`, `/notas`, `/faltas`, `/faltas/aulas`, `/horario`, `/aulas`, `/disciplinas/{idTurmaDisc}/aulas`, `/disciplinas/{idTurmaDisc}/aulas/{idPlanoAula}`, `/disciplinas/{idTurmaDisc}/etapas`, `/calendario`, `/grade-curricular`, `/materiais`, `/disciplinas/{idTurmaDisc}/materiais`, `/materiais/{idMaterial}/arquivo`, `/avaliacoes-institucionais` (`src/operations`)
 - [x] OpenAPI 3.1 document generated from the operations ([openapi.json](openapi.json))
 - [x] Local server (`portal-aluno serve`)
 - [x] Docs page with "testar", built from `openapi.json` (`web/`)
-- [ ] More operations (calendário, aulas, materiais)
 - [ ] MCP server
 
 ## Requirements
 
-Node.js 22 or newer.
+Node.js 22.19 or newer.
 
 ## Use
 
@@ -31,6 +30,8 @@ It prints the docs address. The page works without an account: every endpoint, s
 ```
 Documentação: http://127.0.0.1:4321/docs/
 ```
+
+Endpoints that answer for one enrollment (`/disciplinas` and its lessons, `/notas`, `/faltas`, `/faltas/aulas`, `/horario`, `/aulas`) use the most recent one, or the one given with `--period`. Pass `periodo` with a code from `/periodos` to ask about another, for example `/notas?periodo=2026S1`.
 
 From other tools, log in with `POST /sessao` (`{"usuario": "…", "senha": "…"}` as JSON) and send the returned token as `Authorization: Bearer <token>`. The docs page also has a "Copiar token" button. A new login, a logout (`DELETE /sessao`) or a restart invalidates the previous token.
 
@@ -53,6 +54,7 @@ Token:        …
 - The docs page is built into `dist/web` and served by this server, fonts included (no CDN). Its Content-Security-Policy allows scripts, styles and requests only to this server, with no inline code.
 - The password goes from the page to this server and from here to the portal only. The server keeps it in memory, to log in again when the portal expires the session; it is never written to disk or logged.
 - The page keeps the token in `sessionStorage` (this tab only), or in `localStorage` when "Lembrar de mim" is ticked. A token from the startup link reaches the page in the `#hash`, which browsers never send to servers, and is removed from the address bar.
+- Files from the portal (materials, the profile photo) are sent as `attachment` with `Content-Security-Policy: default-src 'none'; sandbox`, so a file can never run as a page of this server, where the token lives. The docs page allows `blob:` images only to preview a photo it downloaded itself.
 - The request log has method, path, status and time. No query strings, no bodies.
 
 ## Development
@@ -67,7 +69,7 @@ npm run build       # docs page to dist/web, server to dist/
 Work on the docs page without logging in to the real portal:
 
 ```sh
-npm run dev:fake    # the real server against the fake portal (made-up data), token "dev"
+npm run dev:fake    # the real server against the fake portal (made-up data), token "dev"; PORT=4399 npm run dev:fake for another port
 npm run dev:web     # in another terminal: the page with hot reload, at http://localhost:5173/docs/#token=dev
                     # the login screen accepts the fake account: aluno.teste / s3nha&com=símbolos
 ```
@@ -80,19 +82,36 @@ npm run try -- notas
 npm run try -- listarDisciplinas '{"apenasEmCurso":true}'
 npm run try -- faltas/aulas '{"de":"2026-08-01"}'
 npm run try -- horario '{"incluirEncerrados":true}'
+npm run try -- notas '{"periodo":"2026S1"}'
+npm run try -- aulas '{"de":"2026-11-02","ate":"2026-11-06"}'
+npm run try -- grade-curricular '{"situacao":"pendente"}'
+npm run try -- listarAulasDaDisciplina '{"idTurmaDisc":48213}'
+npm run try -- calendario '{"de":"2026-11-01","ate":"2026-11-30"}'
+npm run try -- materiais
+npm run try -- baixarMaterial '{"idMaterial":3150}'   # prints the file's name, type and size, not the file
+npm run try -- eu
+npm run try -- avaliacoes-institucionais '{"objeto":"Curso"}'
 ```
 
 The output is your own data, so don't paste it anywhere public.
+
+Map a portal endpoint before building on it. The probe prints only field names, types, string formats and counts, never values. `--values` lists the distinct values of the fields you name, for codes and enums only:
+
+```sh
+npm run probe -- TOTVSEducacional/Periodos 'TOTVSEducacional/DisciplinasAlunoPeriodoLetivo?mostraApenasDiscEmCurso=false'
+npm run probe -- TOTVSEducacional/Aluno/CalendarioAluno --values EVENTTYPE,LABEL
+```
 
 ## Layout
 
 ```
 src/
   core/          talks to the portal
-    auth.ts        login steps (ListarAlias → form POST → AutoLoginPortal → getcurrentuser)
+    auth.ts        login steps (ListarAlias → JSON login → AutoLoginPortal → getcurrentuser)
     context.ts     enrollment context and the context cookie
     session.ts     PortalSession: in-memory session, re-login, getData()
     http.ts        fetch + cookie jar + throttle, no automatic redirects
+    tls.ts         the intermediate certificate the portal leaves out of its chain
     response.ts    status handling, envelope, schema validation
     errors.ts      PortalError and its codes
   operations/    one file per endpoint of this API: docs, schemas, handler
@@ -102,8 +121,8 @@ src/
 web/             the docs page (React + Vite). Reads /openapi.json; knows nothing else about the API
   src/lib/       pure logic: spec model, Markdown subset, fields, samples, search (tested in test/web.test.ts)
   src/components/
-scripts/         dev runner (try.ts), openapi.json writer, fake-portal server (fake-serve.ts)
-test/            Vitest, with an in-memory fake portal (test/support)
+scripts/         dev runner (try.ts), shape probe (probe.ts), openapi.json writer, fake-portal server (fake-serve.ts)
+test/            Vitest, with an in-memory fake portal (test/support) and made-up portal answers (test/fixtures)
 ```
 
 ### Adding an endpoint

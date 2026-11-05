@@ -1,6 +1,7 @@
-import type { DocModel, DocOperation } from '../lib/spec';
-import { loginHref, routeHref, type ConnectionState, type Route } from '../state';
-import { LockIcon } from './Icons';
+import { useEffect, useId } from 'react';
+import type { DocModel, DocOperation, DocTag } from '../lib/spec';
+import { loginHref, routeHref, useClosedGroups, type ConnectionState, type Route } from '../state';
+import { ChevronUpIcon, LockIcon } from './Icons';
 import { InlineText } from './Markdown';
 
 const SESSION_TEXT: Record<ConnectionState, string> = {
@@ -25,6 +26,39 @@ function OperationLink({ operation, current }: { operation: DocOperation; curren
   );
 }
 
+interface SidebarGroupProps {
+  tag: DocTag;
+  open: boolean;
+  onToggle: () => void;
+  currentId: string | null;
+}
+
+/** A tag's operations under a heading that opens and closes them. */
+function SidebarGroup({ tag, open, onToggle, currentId }: SidebarGroupProps) {
+  const bodyId = useId();
+  return (
+    <section className={`sidebar__group${open ? '' : ' sidebar__group--closed'}`}>
+      <h2 className="sidebar__title">
+        <button type="button" className="sidebar__toggle" aria-expanded={open} aria-controls={bodyId} onClick={onToggle}>
+          <span className="overline">{tag.name}</span>
+          <span className="sidebar__meta">
+            <span className="sidebar__count">{tag.operations.length}</span>
+            <ChevronUpIcon size={14} className="sidebar__chevron" />
+          </span>
+        </button>
+      </h2>
+      {/* Closed, the links leave the tab order and the accessibility tree. */}
+      <div className="sidebar__body" id={bodyId} inert={!open}>
+        <div className="sidebar__items">
+          {tag.operations.map((op) => (
+            <OperationLink key={op.id} operation={op} current={op.id === currentId} />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 interface SidebarProps {
   model: DocModel;
   route: Route;
@@ -35,6 +69,13 @@ interface SidebarProps {
 
 export function Sidebar({ model, route, results, connection }: SidebarProps) {
   const currentId = route.kind === 'operacao' ? route.id : null;
+  const [closedGroups, setGroupOpen] = useClosedGroups();
+
+  // Landing on an operation opens its group, so the current link is always in view.
+  useEffect(() => {
+    const tag = model.tags.find((t) => t.operations.some((op) => op.id === currentId));
+    if (tag) setGroupOpen(tag.name, true);
+  }, [model, currentId, setGroupOpen]);
 
   return (
     <nav className="sidebar" aria-label="Documentação">
@@ -57,17 +98,18 @@ export function Sidebar({ model, route, results, connection }: SidebarProps) {
           )}
         </div>
       ) : (
-        model.tags.map((tag) => (
-          <div className="sidebar__group" key={tag.name}>
-            <div className="sidebar__heading">
-              <span className="overline">{tag.name}</span>
-              <span className="sidebar__count">{tag.operations.length}</span>
-            </div>
-            {tag.operations.map((op) => (
-              <OperationLink key={op.id} operation={op} current={op.id === currentId} />
-            ))}
-          </div>
-        ))
+        model.tags.map((tag) => {
+          const open = !closedGroups.has(tag.name);
+          return (
+            <SidebarGroup
+              key={tag.name}
+              tag={tag}
+              open={open}
+              onToggle={() => setGroupOpen(tag.name, !open)}
+              currentId={currentId}
+            />
+          );
+        })
       )}
 
       <div className="session-card">

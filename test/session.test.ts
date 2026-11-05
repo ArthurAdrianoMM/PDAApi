@@ -1,15 +1,18 @@
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { extractLoginKey } from '../src/core/auth.js';
 import { PortalSession, type PortalErrorCode } from '../src/core/index.js';
+import { filenameOf } from '../src/core/response.js';
 import {
   CONTEXT_COOKIE,
   ORIGIN,
   PASSWORD,
   USER,
   academicRoute,
+  contextRoute,
   createFakePortal,
   envelope,
+  loginKey,
+  OLD_LOGIN_FORM_PATH,
   type FakePortalOptions,
 } from './support/fake-portal.js';
 
@@ -40,7 +43,7 @@ describe('login', () => {
 
     expect(portal.paths()).toEqual([
       'GET TOTVSEducacional/ListarAlias',
-      'POST /Corpore.Net/Source/EDU-EDUCACIONAL/Public/EduPortalAlunoLogin.aspx',
+      'POST TOTVSEducacional/Login',
       'GET user/AutoLoginPortal',
       'GET user/getcurrentuser',
       'GET TOTVSEducacional/Contexto',
@@ -48,23 +51,24 @@ describe('login', () => {
     expect(state.user).toEqual({ login: USER, username: 'Aluno Teste' });
   });
 
-  it('posts the form fields encoded, with the session key taken from the redirect', async () => {
+  it('posts the credentials as JSON, and passes the key from data.value to AutoLoginPortal', async () => {
     const { portal, session } = setup();
     await session.login();
 
     const post = portal.requests.find((r) => r.method === 'POST')!;
-    expect(post.url.searchParams.get('AutoLoginType')).toBe('ExternalLogin');
-    expect(post.headers.get('content-type')).toBe('application/x-www-form-urlencoded');
-    expect(Object.fromEntries(new URLSearchParams(post.body!))).toEqual({ User: USER, Pass: PASSWORD, Alias: 'CorporeRM' });
+    expect(post.headers.get('content-type')).toBe('application/json');
+    expect(JSON.parse(post.body!)).toEqual({ user: USER, password: PASSWORD, alias: 'CorporeRM' });
+    expect(portal.requests.some((r) => r.url.pathname === OLD_LOGIN_FORM_PATH)).toBe(false);
 
     const autoLogin = portal.requests.find((r) => r.url.pathname.endsWith('user/AutoLoginPortal'))!;
-    expect(autoLogin.url.searchParams.get('key')).toBe('KEY-1');
+    expect(autoLogin.url.searchParams.get('key')).toBe(loginKey(1));
+    expect(autoLogin.url.search).not.toContain('+');
   });
 
   it('picks the enrollment with the latest start date', async () => {
     const { session } = setup();
     const { context } = await session.login();
-    expect(context).toEqual({ codPerLet: '2026S2', idPerLet: 1042, curso: 'Curso Exemplo' });
+    expect(context).toEqual({ codPerLet: '2026S2', idPerLet: 1042, curso: 'Curso Exemplo', codCurso: 'DS' });
   });
 
   it('picks the configured period when one is set', async () => {
@@ -78,16 +82,30 @@ describe('login', () => {
     await expectCode(session.login(), 'configuracao_invalida');
   });
 
-  it('fails when the portal does not redirect with a key', async () => {
-    const { portal, session } = setup();
+  it('fails when the portal answers without a key, and passes on its messages', async () => {
+    const { portal } = setup();
     const wrong = new PortalSession({
       credentials: async () => ({ user: USER, password: 'errada' }),
       fetch: portal.fetch,
       config: { baseUrl: ORIGIN, minRequestIntervalMs: 0 },
     });
-    await expectCode(wrong.login(), 'login_falhou');
-    expect(portal.paths().at(-1)).toContain('POST');
-    expect(session.isLoggedIn).toBe(false);
+    await expect(wrong.login()).rejects.toMatchObject({
+      code: 'login_falhou',
+      portalMessages: [{ type: 'error', detail: 'Usuário ou senha inválidos.' }],
+    });
+    expect(portal.paths().at(-1)).toBe('POST TOTVSEducacional/Login');
+    expect(wrong.isLoggedIn).toBe(false);
+  });
+
+  it('reports a 5xx on the login as the portal being unavailable', async () => {
+    const { portal } = setup();
+    const session = new PortalSession({
+      credentials: async () => ({ user: USER, password: PASSWORD }),
+      fetch: async (input, init) =>
+        String(input).endsWith('TOTVSEducacional/Login') ? new Response(null, { status: 503 }) : portal.fetch(input, init),
+      config: { baseUrl: ORIGIN, minRequestIntervalMs: 0 },
+    });
+    await expectCode(session.login(), 'portal_indisponivel');
   });
 
   it('sends the password only to the configured origin', async () => {
@@ -120,19 +138,6 @@ describe('login', () => {
   });
 });
 
-describe('extractLoginKey', () => {
-  const base = new URL(`${ORIGIN}/Corpore.Net/`);
-  it('reads the key from the hash route', () => {
-    expect(extractLoginKey('/app/#/main?key=a%2Bb', base)).toBe('a+b');
-  });
-  it('reads the key from the query string', () => {
-    expect(extractLoginKey('/app/?key=abc#/main', base)).toBe('abc');
-  });
-  it('returns null without a key', () => {
-    expect(extractLoginKey('/app/#/main', base)).toBeNull();
-  });
-});
-
 describe('requests with a session', () => {
   it('sends the context cookie with the raw ID, not URL-encoded', async () => {
     const { portal, session } = setup();
@@ -141,6 +146,52 @@ describe('requests with a session', () => {
     const call = portal.requests.at(-1)!;
     expect(portal.cookiesOf(call).get(CONTEXT_COOKIE)).toBe(LATEST_CONTEXT_ID);
     expect(call.headers.get('cookie')).toContain(`${CONTEXT_COOKIE}=${LATEST_CONTEXT_ID}`);
+  });
+
+  it('asks about another enrollment by sending its context cookie with that request only', async () => {
+    const { portal, session } = setup({
+      routes: { 'TOTVSEducacional/NotaEtapa': contextRoute({ [LATEST_CONTEXT_ID]: { Notas: [] }, 'ctx+A/1==': { Notas: [1] } }) },
+    });
+    await expect(session.getData('TOTVSEducacional/NotaEtapa', {}, z.unknown(), { periodo: '2026S1' })).resolves.toEqual({ Notas: [1] });
+    await expect(session.getData('TOTVSEducacional/NotaEtapa', {}, z.unknown())).resolves.toEqual({ Notas: [] });
+
+    const [other = '', own = ''] = portal.requests.slice(-2).map((r) => r.headers.get('cookie') ?? '');
+    expect(other.match(new RegExp(`${CONTEXT_COOKIE}=`, 'g'))).toHaveLength(1);
+    expect(other).toContain(`${CONTEXT_COOKIE}=ctx+A/1==`);
+    expect(other).toContain('.ASPXAUTH=');
+    expect(own).toContain(`${CONTEXT_COOKIE}=${LATEST_CONTEXT_ID}`);
+  });
+
+  it('keeps concurrent requests for different enrollments apart', async () => {
+    const { session } = setup({
+      routes: { 'TOTVSEducacional/NotaEtapa': contextRoute({ [LATEST_CONTEXT_ID]: 'S2', 'ctx+A/1==': 'S1', 'ctx+C/3==': 'S0' }) },
+    });
+    const get = (periodo?: string) => session.getData('TOTVSEducacional/NotaEtapa', {}, z.string(), { periodo });
+    await expect(Promise.all([get('2026S1'), get(), get('2025S2'), get()])).resolves.toEqual(['S1', 'S2', 'S0', 'S2']);
+  });
+
+  it('reports a period the account has no enrollment in, without asking the portal', async () => {
+    const { portal, session } = setup();
+    await session.login();
+    const before = portal.requests.length;
+    await expectCode(session.getData('TOTVSEducacional/NotaEtapa', {}, z.unknown(), { periodo: '1999S1' }), 'periodo_inexistente');
+    await expectCode(session.contextFor('1999S1'), 'periodo_inexistente');
+    expect(portal.requests).toHaveLength(before);
+  });
+
+  it('tells which enrollment a period means, and lists them all', async () => {
+    const { session } = setup();
+    await expect(session.contextFor()).resolves.toMatchObject({ codPerLet: '2026S2' });
+    await expect(session.contextFor('2025S2')).resolves.toEqual({ codPerLet: '2025S2', idPerLet: 988, curso: null, codCurso: null });
+    expect((await session.ensureSession()).contexts.map((c) => c.codPerLet)).toEqual(['2026S1', '2026S2', '2025S2']);
+  });
+
+  it('puts the context ID in the named query parameter, URL-encoded there', async () => {
+    const { portal, session } = setup({ routes: { 'v1/planoaulas/aulas': academicRoute('ctx+A/1==', []) } });
+    await session.getData('v1/planoaulas/aulas', { a: 1 }, z.unknown(), { periodo: '2026S1', contextParam: 'idContextoAluno' });
+    const { url } = portal.requests.at(-1)!;
+    expect(url.searchParams.get('idContextoAluno')).toBe('ctx+A/1==');
+    expect(url.search).toBe('?a=1&idContextoAluno=ctx%2BA%2F1%3D%3D');
   });
 
   it('logs in again once when the session expires, then retries', async () => {
@@ -241,5 +292,56 @@ describe('requests with a session', () => {
     session.forget();
     expect(session.isLoggedIn).toBe(false);
     expect(portal.requests.length).toBe(before);
+  });
+});
+
+describe('files', () => {
+  const PDF = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31]);
+  const fileRoute = (headers: Record<string, string>, body: Uint8Array | string = PDF) => () => new Response(body, { status: 200, headers });
+
+  it('reads a download as bytes, with its type and the name in Content-Disposition', async () => {
+    const { session } = setup({
+      routes: {
+        'TOTVSEducacional/Material/Download': fileRoute({
+          'content-type': 'application/octet-stream',
+          'content-disposition': 'attachment; filename="=?utf-8?B?UmVndWxhbWVudG8gQ3JlbsOnYXMuUERG?="',
+        }),
+      },
+    });
+    const file = await session.getFile('TOTVSEducacional/Material/Download', { idMaterialSec: 1 });
+    expect(file).toEqual({ bytes: PDF, contentType: 'application/octet-stream', filename: 'Regulamento Crenças.PDF' });
+  });
+
+  it('reports a JSON answer where a file was expected, with the portal messages when there are any', async () => {
+    const { session } = setup({
+      routes: {
+        'TOTVSEducacional/Material/Download': fileRoute(
+          { 'content-type': 'application/json; charset=utf-8' },
+          JSON.stringify({ data: { 'RMException:Message': 'x' }, messages: [{ type: 'error', detail: 'Arquivo não encontrado' }] }),
+        ),
+        'TOTVSEducacional/Outro': fileRoute({ 'content-type': 'application/json' }, JSON.stringify({ data: [], messages: [] })),
+      },
+    });
+    await expectCode(session.getFile('TOTVSEducacional/Material/Download', {}), 'erro_do_portal');
+    await expectCode(session.getFile('TOTVSEducacional/Outro', {}), 'resposta_inesperada');
+  });
+
+  it('logs in again once when a download hits an expired session', async () => {
+    const { portal, session } = setup({ routes: { 'TOTVSEducacional/Material/Download': fileRoute({ 'content-type': 'application/pdf' }) } });
+    await session.login();
+    portal.expireSession();
+    await expect(session.getFile('TOTVSEducacional/Material/Download', {})).resolves.toMatchObject({ contentType: 'application/pdf' });
+    expect(portal.logins).toBe(2);
+  });
+
+  it.each([
+    ['attachment; filename=Plano.PDF', 'Plano.PDF'],
+    ['attachment; filename="a \\"b\\".pdf"', 'a "b".pdf'],
+    ["attachment; filename*=UTF-8''Gr%C3%A1fico.pdf; filename=x.pdf", 'Gráfico.pdf'],
+    ['attachment; filename="=?iso-8859-1?Q?Fran=E7a_x.pdf?="', 'França x.pdf'],
+    ['attachment', null],
+    [null, null],
+  ])('reads the file name in %j', (header, name) => {
+    expect(filenameOf(header)).toBe(name);
   });
 });

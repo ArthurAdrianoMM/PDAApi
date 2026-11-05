@@ -18,6 +18,7 @@ const contextRecordSchema = z.looseObject({
   IDPERLET: integerLike,
   DTINICIO: z.string().nullish(),
   NOMECURSO: z.string().nullish(),
+  CODCURSO: z.union([z.string(), z.number()]).nullish().transform((value) => (value == null || value === '' ? null : String(value))),
 });
 
 export type ContextRecord = z.output<typeof contextRecordSchema>;
@@ -28,6 +29,8 @@ export interface ActiveContext {
   codPerLet: string;
   idPerLet: number;
   curso: string | null;
+  /** Course code (`CODCURSO`), as some lists filter by it (ENDPOINTS.md 4.4). */
+  codCurso: string | null;
 }
 
 export async function listContexts(http: PortalHttp, config: PortalConfig): Promise<ContextRecord[]> {
@@ -67,5 +70,5 @@ export function pickContext(records: ContextRecord[], codPerLet?: string): Conte
 }
 
 export function toActiveContext(record: ContextRecord): ActiveContext {
-  return { codPerLet: record.CODPERLET, idPerLet: record.IDPERLET, curso: record.NOMECURSO ?? null };
+  return { codPerLet: record.CODPERLET, idPerLet: record.IDPERLET, curso: record.NOMECURSO ?? null, codCurso: record.CODCURSO };
 }

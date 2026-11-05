@@ -28,6 +28,7 @@ Credentials, cookies, tokens and personal values are not written in this file.
 - Academic endpoints also need the **context cookie** `EduContextoAlunoResponsavelAPI`, which the client must set itself (section 2.4).
 - Several list endpoints are called with the active enrollment context; the frontend sends no extra header beyond cookies (`accept: application/json, text/plain, */*`).
 - Responses use `cache-control: no-cache`.
+- **Incomplete TLS chain (seen 2026-11-03).** The certificate `*.fieb.org.br` is issued by *Sectigo Public Server Authentication CA DV R36*, but the server sends other intermediates (a code-signing root and the OV CA) instead of that one. Browsers and curl on macOS fetch it from the certificate's AIA URL; Node does not, and fails with `UNABLE_TO_VERIFY_LEAF_SIGNATURE`. The client adds that public intermediate to Node's CAs (`src/core/tls.ts`), with verification still on.
 
 ---
 
@@ -42,25 +43,26 @@ Credentials, cookies, tokens and personal values are not written in this file.
 
 **Removed: `TOTVSEducacional/LoginURL?alias=CorporeRM`.** On 2026-10-29 it returned **404** (`"No HTTP resource was found that matches the request URI"`), and the current login page code (`login/login.controller.js`) does not call it. The old portal's base is a constant in the portal's own config: `CONST_GLOBAL_URL_CORPORE_RM = '/Corpore.net/'` in `FrameHTML/web/js/totvs-app.global.config.js`, on the same host.
 
-### 2.2 Form login (verified)
+### 2.2 JSON login (verified 2026-11-03)
 
-`POST /Corpore.Net/Source/EDU-EDUCACIONAL/Public/EduPortalAlunoLogin.aspx?AutoLoginType=ExternalLogin`
+`POST /FrameHTML/RM/API/TOTVSEducacional/Login`
 
-Re-verified from curl on 2026-10-29: this POST, then `AutoLoginPortal` (2.3), `Contexto` and the context cookie (2.4), then `getcurrentuser` returned the logged-in user.
+This is what the current login page does (`login.controller.js`, function `login`): it posts `{ user, password, alias }` as JSON, reads the key from the answer and redirects to `#/main?key=<key>`.
 
-- Content type: `application/x-www-form-urlencoded`
-- Fields: `User`, `Pass`, `Alias` (`CorporeRM`)
-- Needs `Content-Length`. Without it the server returns 411.
-- Success: **302** to `https://senaiweb6.fieb.org.br/framehtml/web/app/edu/PortalEducacional/#/main?key=<opaque>`, and cookies are set (see section 3). Treat the 302 as success. Do not follow redirects with a body-less POST.
-- The `key` value is an opaque session key. The app passes it to step 2.3.
+Checked from curl on 2026-11-03, with a browser `User-Agent` and only status, header names and JSON paths recorded:
 
-**Found, not verified: the login page's own JSON login.** The current login page (`login.controller.js`, function `login`) does not post this form. It calls `POST /FrameHTML/RM/API/TOTVSEducacional/Login` with the JSON body `{ user, password, alias }`, and on success reads the key from `result.value`, then redirects to `#/main?key=<value>`. The response shape and status codes have not been recorded. The API keeps the form POST above because it is the verified path.
+- Content type: `application/json`. Body: `{ "user": "…", "password": "…", "alias": "CorporeRM" }`.
+- Success: **HTTP 200**, `application/json; charset=utf-8`, cookies `.ASPXAUTH` and `cookiesession1` set. The body is the envelope with `data.value` (the session key, a scalar), `length` and `HttpStatusCode`.
+- The key goes to step 2.3. In the URL it is a query value, so it is URL-encoded there.
+- The answer to wrong credentials is not recorded (section 7.1).
+
+**Old form login, now 503.** `POST /Corpore.Net/Source/EDU-EDUCACIONAL/Public/EduPortalAlunoLogin.aspx?AutoLoginType=ExternalLogin` with the form fields `User`, `Pass`, `Alias` worked from curl on 2026-10-29: a **302** to `…/PortalEducacional/#/main?key=<opaque>`, and it needed `Content-Length` (411 without). On 2026-11-03 the same POST returned **503 Service Unavailable** (a 326-byte HTML page), with curl's own `User-Agent` and with a browser one, while the JSON login above worked. The API no longer uses it.
 
 ### 2.3 Session bootstrap (verified, GET)
 
-`GET /FrameHTML/RM/API/user/AutoLoginPortal?key=<key from the 302>`
+`GET /FrameHTML/RM/API/user/AutoLoginPortal?key=<data.value from 2.2>`
 
-The frontend calls this right after the redirect, which turns the key into an authenticated app session. Other endpoints require this session. After this call the cookie jar holds `RMAuthForm`, `ASP.NET_SessionId`, `.ASPXAUTH`, `DefaultAlias` and `CorporePrincipal`.
+The frontend calls this right after the login, which turns the key into an authenticated app session. Other endpoints require this session. After this call the cookie jar holds `RMAuthForm`, `ASP.NET_SessionId`, `.ASPXAUTH`, `DefaultAlias` and `CorporePrincipal`.
 
 ### 2.4 Set the context cookie (verified from curl, required)
 
@@ -78,6 +80,8 @@ Observed results for `TOTVSEducacional/NotaEtapa`:
 | Raw `IDCONTEXTOALUNO` | HTTP 200, `data.Notas[]` as in section 4.3 |
 
 `user/getcurrentuser` and `Contexto` work without this cookie. The permission warning is the sign that the context cookie is missing, not that the account lacks access.
+
+**Switching enrollments (verified from a script, 2026-11-03).** The cookie alone picks the enrollment. Sending another record's raw `IDCONTEXTOALUNO` made `NotaEtapa`, `FaltaEtapa`, `QuadroHorarioAluno`, `DisciplinasAlunoPeriodoLetivo` and `Aluno/Falta/Aula` answer for that period: other `IDTURMADISC` values, and `IDPERLET` of that period in `DisciplinasAlunoPeriodoLetivo`. It worked for the oldest period (`2023S1`) too. The portal keeps no state from it: the next request with the session's own cookie answered for the session's period again, and two concurrent requests with different cookies each got their own period. `Contexto/Selecao` is not needed. The API sends the other cookie with that request only (`periodo` on its endpoints) and leaves the jar alone.
 
 ### 2.5 Logout (verified, state-changing, avoid)
 
@@ -102,6 +106,7 @@ The login page calls this **on load**, so it ends any existing session. Do not c
 | `CorporePrincipal` | Encrypted principal blob set by the portal |
 | `EduContextoAlunoResponsavelAPI` | Active student context. Set by the frontend JavaScript, **not by the server**. Holds the raw `IDCONTEXTOALUNO` from `Contexto`. API clients must set it themselves (section 2.4) |
 | `EduMascaras` | Front-end masks (phone, CEP). Not sensitive |
+| `cookiesession1` | Set on every response seen on 2026-11-03, the 503 included. Purpose not recorded; it may come from a proxy in front of the portal |
 
 **Session check:** `GET /FrameHTML/RM/API/user/getcurrentuser` returns the logged-in user. Use it to check whether the session still works.
 
@@ -129,7 +134,7 @@ All are `GET` unless noted, all need the session cookies, and all return the env
 
 | Path | Verified | Response | Notes |
 |---|---|---|---|
-| `TOTVSEducacional/Aluno/InformacoesPessoaisBasicas` | yes | `data[0]`: `NOME` (string), `IMAGEM` (base64 photo) | Personal data. Do not log the photo. |
+| `TOTVSEducacional/Aluno/InformacoesPessoaisBasicas` | yes | `data[0]`: `NOME` (string), `IMAGEM` (the photo as raw base64, no `data:` prefix; a PNG of about 37 KB here, checked 2026-11-03) | Personal data. Do not log the photo. The API serves it decoded at `/eu/foto`, typed by its first bytes. |
 | `TOTVSEducacional/Parametrizacao/TotvsEducacional` | yes | `data`: about 90 portal settings (booleans, numbers and strings). Includes report codes such as `CodRelatorioConsultaNotaReports` and `PermiteAlterarSenha` | Portal configuration, read-only. |
 | `TOTVSEducacional/Parametrizacao/v1/TotvsEducacional/Geral` | yes | `data.UtilizaBuscaIpServer` (boolean) | |
 | `TOTVSEducacional/Permissoes` | yes | `data`: about 50 permission keys, each a string (for example `EDU_ACADEMICO_CENTRALALUNO_NOTAS`, `EDU_FINANCEIRO_NOVO`) | Use these to know which pages this student may open. |
@@ -168,7 +173,7 @@ Each page first calls `Periodos` and `DisciplinasAlunoPeriodoLetivo`, then its o
 | `TOTVSEducacional/Widget/DadosWidgetsFavoritos` | yes | Favourite widgets. Empty for this student. |
 | `TOTVSEducacional/Banner` | yes | `data[]` of banner images (`IDBANNER`, `TITULO`, `DTINICIAL`, `IMAGEM` (base64/url), `LINK`, `ORDEM`, `ATIVO`, `PORTALALUNO`). |
 | `TOTVSEducacional/v1/AtividadeOfertada/AlertaAtividadesAcademicas` | yes | Academic activity alerts. Empty here. |
-| `TOTVSEducacional/AvaliacoesInstitucionais` | yes | `data.Avaliacao[]` of institutional evaluations (`CODPROVA`, `IDEXECPROVA`, `DESCRICAO`, `NOMEPROFESSOR`, `NOMEDISCIPLINA`, `NOMECURSO`, …). |
+| `TOTVSEducacional/AvaliacoesInstitucionais` | yes | `data.Avaliacao[]` (10 here): `ID` (integer), `CODPROVA` (text, e.g. `F149IES_2026.2`), `IDEXECPROVA` (text, not always digits), `OBJETOAVALIADO` (`Professor` or `Curso`), `DESCOBJETOAVALIADO` (text naming the object: `Professor - Turma - Disciplina:…` or `Curso:<code> - …`), `DESCRICAO` (the professor's or the course's name), `NOMEPROFESSOR`, `NOMEDISCIPLINA`, `CODTURMA` (set on professor items), `NOMECURSO`, `CODCURSO` (set on the course item), and `NOME`, `NOMEHABILITACAO`, `NOMEGRADE`, `CODHABILITACAO`, `CODGRADE`, `REC*` (null) | Checked from a script on 2026-11-03: the same answer with the context cookie of 2026S2 and 2023S1. The page (`avaliacoes-institucionais-list.controller.js`) keeps items whose `CODCURSO` is empty or the current course's, and filters by `OBJETOAVALIADO`. Answering opens another system (TESTIS) through `EduLoginByToken.aspx` with an API token, and writes answers: out of scope. **The names in these fields are other people's: do not log or record them.** |
 | `TOTVSBiblioteca/v1/Context/LibraryUnitContext?pageSize=100` | yes | Library context. Not needed for the grades API. |
 
 ---
@@ -180,6 +185,18 @@ Each page first calls `Periodos` and `DisciplinasAlunoPeriodoLetivo`, then its o
 | `TOTVSEducacional/GradeCurricular/EnsinoSuperior` | yes | `data.SHabilitacaoAluno[0]`: enrollment summary (`RA`, `CODSTATUS`, `NOMESTATUS`, `DTINGRESSO`, `NOMEGRADE`, `NOMECURSO`, `NOMEHABILITACAO`, `NOMETURNO`, `CODCURSO`, `CODHABILITACAO`, `CODGRADE`, `CODTIPOCURSO`, `CODFILIAL`, `CR`, `MEDIAGLOBAL`, `TOTCHCURSO`, `TOTCHINTEGRALIZADA`, `CARGAHORARIAGRADE`, and counts `QTDTOTALDISCOBR`, `QTDCONCDISCOBR`, `QTDPENDDISCOBR`, `QTDTOTALDISCOPT`, `QTDCONCDISCOPT`, `QTDPENDDISCOPT`, `QTDTOTALDISCELE`, `QTDCONCDISCELE`, `QTDPENDDISCELE`, `QTDTOTALATVCUR`, `QTDCONCATVCUR`, `QTDPENDATVCUR`, `QTDTOTALEXTENSAO`, `QTDCONCEXTENSAO`, `QTDPENDEXTENSAO`, `POSSUIEXTENSAO`); `data.SDiscEquivConcluidas[]`, `data.SDiscEquivEmCurso[]`, `data.SDisciplinaTCC*[]`; **`data.APRESENTACAOHISTORICO[]`** (82 rows for this student) | This is the main grade-curriculum endpoint for higher education. `APRESENTACAOHISTORICO` rows hold the academic history: `CODPERIODO`, `CODGRUPO`, `CODDISC`, `DISCIPLINA`, `STATUS`, `PLETIVO`, `CONCEITO`, `NOTA` (string), `FALTAS` (string), `NUMCREDITOS`, `CH`, `CHINTEGRALIZADA`, `IDTURMADISC`, `IDPERLET`, `STATUSENUM`, `TIPOENUM`. The grade page uses this call. The history page uses the basic-education call below. |
 | `TOTVSEducacional/GradeCurricular/HistoricoEnsinoBasico` | yes, **error for this student** | Returns `messages[0]` with `type` and `detail` (the response shape is `{"data": {"RMException:Message": "..."}, ...}`), HTTP 200 | This is the basic-education history. It fails for a higher-education student, so the history page (`#/historico`) is basic-education only. Use `EnsinoSuperior` for this student's history. |
 
+**`EnsinoSuperior` in detail** (from the page's code, `grade-curricular-list.controller.js`, and a run from a script on 2026-11-03, shapes and codes only):
+
+- `APRESENTACAOHISTORICO` is the page's table, row by row, in display order. `CODPERIODO` is the group: the grade's semester (`1` … `10` here), or `97` (equivalentes), `98` (eletivas/optativas), `100` (a curricular component, here "ATIVIDADES COMPLEMENTARES"). `CODGRUPO` is the group's name; the page strips `&nbsp;` from it.
+- `STATUSENUM` drives the page's tabs: `1` em curso, `2` pendentes, `3` concluídos. `0` ("sempre mostrar") marks rows that are only text of the page: a total per group (`CODDISC` `totCHIntegralizada`, `DISCIPLINA` `Total CH integralizada: 375,0000`), "none" messages (in `CODDISC`), and the headers of a component and of its modalities (`CODDISC` `-1`, `DISCIPLINA` `Modalidade: …`, with `NEGRITO`/`ITALICO` set). The sum of `CHINTEGRALIZADA` over a group's discipline rows matched its total row in every group.
+- `TIPOENUM` drives the page's filters: `1` obrigatórias, `2` equivalentes, `3` eletivas/optativas, `4` atividades curriculares, `5` extras.
+- `STATUS` texts seen: `Aprovado`, `Matriculado`, `Cancelado` (a `2`, pending again), `Concluída` (an activity), and empty for disciplines not taken yet. `IMG` is the legend icon: `img_concluida`, `img_pendente`, `img_naoconcluida` (in progress or cancelled), `img_branco` (text rows), and per the page `equivalente.gif`.
+- Numbers are text with a decimal comma: `CH`, `NUMCREDITOS`, `CHINTEGRALIZADA` (`"60,0000"`), `NOTA` (`"8,5"`), `CARGAHORARIAGRADE` in `SHabilitacaoAluno` (`"4230,0000"`). The page parses them by removing `.` and turning `,` into `.`. `FALTAS` is digits or empty. `CONCEITO` was empty or null. `IDTURMADISC` and `IDPERLET` are set on disciplines that have a class.
+- An activity row has an empty `CODDISC` and comes after its modality header.
+- `SHabilitacaoAluno[0]`: the `QTD*DISCOBR` counts are disciplines (the page labels them "Número"). The optional, elective and activity counts are measured in what `TIPOCONTDISCOPT`, `TIPOCONTDISCELE` and `TIPOCONTATVCUR` say: `Carga horária` here, so hours (`QTDTOTALATVCUR` 60, `QTDCONCATVCUR` 40). `POSSUIEXTENSAO` was `N`. `CR` was null, `MEDIAGLOBAL` a number.
+- The TCC lists (`SDisciplinaTCC*`) and `SDiscEquiv*` were empty, so their shapes are not recorded.
+- The same grade came back with the context cookie of every period checked (2026S2, 2023S1): the grade is the course's.
+
 Pages: `#/grade-curricular` calls `Periodos`, `GradeCurricular/EnsinoSuperior`, and `Widget/DadosWidgets?idFuncionalidade=4`. `#/historico` calls `GradeCurricular/HistoricoEnsinoBasico` (fails here) and `Widget/DadosWidgets?idFuncionalidade=8`.
 
 ### 4.6 Calendar (verified)
@@ -187,6 +204,14 @@ Pages: `#/grade-curricular` calls `Periodos`, `GradeCurricular/EnsinoSuperior`, 
 | Path | Verified | Response | Notes |
 |---|---|---|---|
 | `TOTVSEducacional/Aluno/CalendarioAluno` | yes | `data.APPOINTMENTS[]` (1458 items for this student). Fields: `ID` (number), `EVENTTYPE` (number), `RECURRENCEINFO` (string), `STARTTIME`, `ENDTIME` (ISO strings), `SUBJECT`, `DESCRIPTION`, `ALLDAY` (boolean), `LABEL`, `IDTURMADISC` (number, class), `IDPLANOAULA` (number, lesson), `CODETAPA`, `CODPROVA`, `IDOFERTA` (null here) | One call returns the whole calendar. No date parameter is sent. Expect a large response. Use `IDPLANOAULA` and `IDTURMADISC` to link an appointment to a lesson or class. |
+
+**`CalendarioAluno` in detail** (from the page's code, `calendario-list.controller.js`, and a run from a script on 2026-11-03, shapes and codes only):
+
+- 1206 appointments this time (1458 in the first capture), from 2025-08 to 2026-12, for 13 classes: more than one period. The same answer came back with the context cookie of 2026S2, 2026S1 and 2023S1, so the calendar does not depend on the enrollment.
+- Types: `ID` (integer, unique, 0 to n−1), `EVENTTYPE` (`1` in every row), `LABEL` (digits as text), `STARTTIME`, `ENDTIME` (`YYYY-MM-DDTHH:mm:ss`, no zone; the page's scheduler reads them as UTC so they show as written), `ALLDAY` (boolean, `false` in every row), `SUBJECT`, `DESCRIPTION` (text; for lessons, the class and the place), `IDTURMADISC`, `IDPLANOAULA` (integers), `CODETAPA`, `CODPROVA`, `IDOFERTA` (null in every row).
+- `LABEL` is the event type of the page's legend (`eduEnumsConsts.TipoEventoCalendario`): `0` matrícula presencial, `1` matrícula pelo portal, `2` limite de trancamento, `3` avaliações, `4` atividades inscritas, `5` aula, `6` entrega de trabalho, `7` lição de casa. Every row was `5`. The page opens a lesson summary for `IDPLANOAULA`, an assessment for `CODETAPA`/`CODPROVA`, and an activity for `IDOFERTA`.
+- `RECURRENCEINFO` is an RRULE-like text with spaces and unpadded numbers, `FREQ = WEEKLY ; WKST = MO; UNTIL = 2025-8-05T09:50:0`, which the page passes to the scheduler as `recurrenceRule`. In every row `WKST` was the event's weekday and `UNTIL` was the event's own `ENDTIME`, so each appointment happens once.
+- For a class with subclasses, only the student's subclass's lessons are listed: one week matched `/aulas` lesson for lesson.
 
 Page `#/calendario` calls `Aluno/CalendarioAluno`, `Periodos`, `DisciplinasAlunoPeriodoLetivo?mostraApenasDiscEmCurso=false`, and `Widget/DadosWidgets?idFuncionalidade=3`.
 
@@ -202,6 +227,22 @@ Each class has a numeric `IDTURMADISC`, taken from `DisciplinasAlunoPeriodoLetiv
 | `TOTVSEducacional/EtapasTurmaDisc?idTurmaDisc=<id>&tipoEtapaTurmaDisc=F` | yes | `data[]` of stages for the class: `CODETAPA`, `TIPOETAPA`, `APLICACAO`, `DESCRICAO`, `FREQMIN`, `DTINICIO`, `DTFIM`, `AULASDADAS`, `AULASPREVISTAS`, `DTLIMITEDIGITACAO`, `DISPONIVELALUNOS`, `ETAPAENCERRADA`, `PERMITEDIGITACAO`, `EXIBENAWEB`, `ETAPAFINAL` (and others) | Assessment stages. Used by the grades and absences pages. |
 | `TOTVSEducacional/MateriaisTurmaDisciplina?idTurmaDisc=<id>` | yes (empty) | `data[]` (empty for the classes checked) | Materials for one class. |
 
+**`EtapasTurmaDisc` in detail** (a run from a script on 2026-11-03, shapes and codes only). The current page code does not call it; it was seen in the browser (section 4.3). `tipoEtapaTurmaDisc` is `N` (grade stages) or `F` (absence stages), as in `eduEnumsConsts.TipoEtapa`.
+
+- `CODETAPA` and `DESCRICAO` match the stage columns of `NotaEtapa` (`1 - AV 1 / AV QT 1`) and `FaltaEtapa` (`0 - Faltas`). But not every `NotaEtapa` stage is listed: a class had stages 1 and 2 here and 1 to 3 in `NotaEtapa`, and a class with no `N` stages here was not in `NotaEtapa`.
+- `N` stages: `PONTDIST` (integer, `10`), `MEDIA`, `FREQMIN`, `DTINICIO`, `DTFIM`, `AULASDADAS`, `ETAPAFINAL` null. `F` stage (one, `CODETAPA` 0): `FREQMIN` (integer, `75`), `AULASDADAS` (integer), `AULASPREVISTAS` null, `DTINICIO`/`DTFIM` (`2021-07-01` to `2030-12-31`), `ETAPAFINAL` `S`. Both: `DTINICIODIGITACAO`, `DTLIMITEDIGITACAO` (`YYYY-MM-DDTHH:mm:ss`), `ETAPAENCERRADA`, `DISPONIVELALUNOS`, `EXIBENAWEB`, `PERMITEDIGITACAO` (`S`/`N`).
+- **`PERCENTUAL` of `FaltaEtapa` is not faltas ÷ `AULASDADAS`.** It matched only for classes whose lessons had all been given. For the others, faltas ÷ `PERCENTUAL` gives the class's total lessons (72, 108), which no field here carries.
+
+**Found in the page code, not called: `#/desempenho`.** `desempenho.factory.js` calls `v1/EtapasNotasTurmaDiscAluno` (the grade stages of all classes: `Etapas[]` of `CODETAPA`, `TIPOETAPA`, `NOMEREDUZIDO`) and `v1/DesempenhoAluno?codEtapa=<n>` (`Notas[]` with the student's `NOTA` next to `MEDIATURMA` and `MEDIACURSO`). The page is not in this student's menu (section 6), so the API does not use it.
+
+**The class page in detail** (from the page's code, `disciplina.controller.js`, `aulas-lista.controller.js`, `aulas.factory.js` and `matricula-disciplina-detalhes.factory.js`, and a run from a script on 2026-11-03, shapes and codes only):
+
+- Opening a class calls `TOTVSEducacional/MatriculaDisciplinaPorHabilitacaoFilialTurmaDisc?idTurmaDisc=<id>`. `data.DisciplinaInfo[0]` has the class (`IDTURMADISC`, `CODSUBTURMA`, `CODDISC`, `NOME`, `CH`, `NUMCREDITOS`, `CODTURMA`, `TIPODISCIPLINA`, `CODPERIODO`, `DESCPERIODO`, `DISCIPLINATCC` `N`, …). `data.HorariosTurmaDiscInfo[]` has every slot of the class, of every subclass (`IDHORARIOTURMA`, `CODSUBTURMA`, `DIASEMANA` integer, `HORAINICIAL`, `HORAFINAL`, `DATAINICIAL`, `DATAFINAL`, `AULA` digits as text, `PROFESSOR` name). `data.ProfessorTurmaDiscInfo[]` has the professors (`NOME`, `CODPROF`, `DTINICIO`, `DTFIM` null here).
+- `DisciplinaInfo[0].CODSUBTURMA` was the same as `CODSUBTURMA` of `DisciplinasAlunoPeriodoLetivo` for all 5 classes checked (null, or `SUBTURMA C`).
+- The lesson tab then calls `AulasDisciplina/{id}` with that `codSubTurma` (empty string when null) and `dataInicio`/`dataFim` as noon of each day. **Without the subclass**, a class with subclasses answered with every subclass's lessons (6 a day instead of 2). On load, the window is this week: Monday to the next Sunday, and a Sunday counts as the end of the week before.
+- `AulasDisciplina` sends the days newest first. In each lesson, `PlanoAula` is PascalCase (`IdPlanoAula`, `NumAula`, `IdHorarioTurma`, `DataAula`, `HoraInicial`, `HoraFinal`, `Conteudo`, `ConteudoEfetivo`, `LicaoCasa`, `Observacao` (empty strings when unset), `Confirmado` (boolean), `TipoAula` (`P` or empty), `UrlAulaOnline`), `Horario` has `DiaSemana` (integer), and `Frequencia` is `Presente`, `Ausente`, or null when not recorded yet. `ListaFaltas[]` has one row per lesson of the day: `TipoFrequencia` `1` for an absence (with `AbonoFalta` `Não`) and `0` for a presence, `IdHorarioTurma`, `Data`, `HoraInicial`, `HoraFinal`, `Justificada` and `JustificativaFalta` (empty here), and `Aula` always `0`, so a row matches its lesson by `IdHorarioTurma`. `QuantidadeFaltas` matched the absent lessons of the day. `ListaMateriais[]` was empty, so its shape is not recorded.
+- `PlanoAula/Aula` types differ from `v1/planoaulas/aulas`: `DIASEMANA` is text (`"2"`), `CONFIRMADO` `N`. It adds `DATAEFETIVA`, `HORAINICIALREALIZADO`, `HORAFINALREALIZADO` (set once the lesson happened) and `REPOSICAO`, `SUBSTITUTO` (`N`). A lesson ID the portal doesn't have for the class returns `SPlanoAula: []`, HTTP 200.
+
 Page `#/aulas` loads its view (`aulas-lista.view.html`) on navigation. Its own data calls on load were not separated from the calendar page's in this capture. The per-class `AulasDisciplina/{id}` call is what the lesson list uses, and it was observed in a later navigation. The lesson view uses `PlanoAula/Aula` and `PlanoAula/ArquivoAula` (the latter returns 403 here).
 
 ### 4.8 Lesson plan by day (verified)
@@ -212,17 +253,35 @@ Page `#/aulas` loads its view (`aulas-lista.view.html`) on navigation. Its own d
 
 **`idContextoAluno`:** the frontend takes this from the cookie `EduContextoAlunoResponsavelAPI`, which holds the active enrollment context (the same value as `IDCONTEXTOALUNO` in `Contexto`). The frontend reads the cookie (decoded) and applies `encodeURI` to it. Keep the same steps. The encoding applies only to this query parameter. The cookie itself must hold the raw value (section 2.4). The value is opaque, so do not log it.
 
+**Wire format of `idContextoAluno` (from the page code, `plano-aula.factory.js` and `totvs-desktop-contexto-curso.factory.js`).** `getIdContextoEncode()` returns `encodeURI(Cookies.get('EduContextoAlunoResponsavelAPI'))`, and Angular's query serializer then URL-encodes that value again. This account's IDs contain backslashes, which `encodeURI` turns into `%5C`, so the URL carries `%255C`. The API sends the same: `encodeURI(id)`, then URL-encoded as a query value. Checked from a script on 2026-11-03: the portal answered with data.
+
+**Checked from a script (2026-11-03), shapes and counts only:**
+
+- `dtInicial` and `dtFinal` are `Date` objects in the page, so they go out as ISO instants (`toISOString()`). The portal reads them as dates in its own time zone: 23:00 local on a Monday (02:00Z Tuesday) returned that Monday's lessons (none, a holiday), not Tuesday's. The API sends noon local time of each day.
+- A window works, not only one day: Tuesday to Friday returned 26 lessons on 4 days, and October 1 to 31 returned 160 on 22 days. The API allows up to 31 days.
+- `periodo` works here too: the context cookie and `idContextoAluno` of 2026S1 returned that period's lessons for a day in April; with the session's 2026S2, the same day was empty.
+- `data` has `SPlanoAula[]` and `SPLANOAULAARQUIVO[]` (empty here). `SPlanoAula` field types: `IDPLANOAULA`, `IDTURMADISC`, `IDHORARIOTURMA`, `AULA`, `CODHOR`, `IDPERLET`, `CODCOLIGADA` (integers), `DIASEMANA` (integer, `1` Sunday … `7` Saturday, matching the date), `DATA` (`YYYY-MM-DDTHH:mm:ss`), `HORAINICIAL`, `HORAFINAL` (`HH:mm`), `CODDISC`, `NOMEDISC`, `CODTURMA` (strings), `CODSUBTURMA` (empty string in every row, even for a class whose `DisciplinasAlunoPeriodoLetivo` row has a subclass), `CONFIRMADO` (`N` in every row), `TIPOAULA` (`P`, `T`, empty or null), `FREQUENCIADISPWEB` (`"1"` or `"0"`), `CONTEUDO`, `CONTEUDOEFETIVO` (plain text, no HTML, sometimes with line breaks; 256 characters at most here, the same in `PlanoAula/Aula`), `LICAOCASA`, `URLAULAONLINE` (empty or null), `PREDIO`, `BLOCO`, `SALA` (`"code - name"` text or null, with `CODPREDIO`, `CODBLOCO`, `CODSALA`), and `TIPOFALTA`, `CODFILIAL`, `CODPROF`, `LOCACAO`, `DATAEFETIVA`, `REPOSICAO`, `SUBSTITUTO`, `PAGAMENTOPROF`, `HORAINICIALREALIZADO`, `HORAFINALREALIZADO`, `OBSERVACAO` (null in every row).
+- **Every subclass's lessons.** For a class with subclasses, the answer lists the lessons of all of them (24 rows in one week, 8 per subclass), and `CODSUBTURMA` is blank, so the rows don't say whose they are. The page shows them all. `IDHORARIOTURMA` tells them apart: `HorariosTurmaDiscInfo` of `MatriculaDisciplinaPorHabilitacaoFilialTurmaDisc` maps each slot to its `CODSUBTURMA`, and the student's 8 rows were exactly those of the student's subclass (also the same 8 `IDPLANOAULA` that `AulasDisciplina` returns with that `codSubTurma`). `/aulas` keeps the student's subclass unless asked for all. `QuadroHorarioAluno` lists only the student's own slots.
+- The page names `TIPOAULA` `T` aula teórica, `P` aula prática, `L` laboratório, `E` estágio, `X` extensão. It labels `CONTEUDO` "Conteúdo previsto", `CONTEUDOEFETIVO` "Conteúdo efetivo" and `LICAOCASA` "Lição de casa", and lists the files of each lesson from `SPLANOAULAARQUIVO` by `IDPLANOAULA` (`ARQUIVO`, `TAMANHO` in KB, and `IDMATERIALSEC` and `PATHARQUIVO` for `Material/Download`).
+
 Page `#/plano-aula` calls `v1/planoaulas/aulas` for the selected day.
 
 ### 4.9 Files and materials (verified)
 
 | Path | Verified | Response | Notes |
 |---|---|---|---|
-| `TOTVSEducacional/Material/Institucional` | yes | `data[]` (32 items): `IDMATERIALSEC` (number), `DESCRICAO`, `DESCRICAOTIPOMATERIAL` (`Material P/ Aluno`, `Estágio`, `Todos`), `IDTIPOMATERIAL`, `TIPOUSUARIO`, `TIPOUSUARIOORIGEM`, `DATAEXPIRACAO`, `DATAINCLUSAO`, `CODUSRAUTOR`, `TAMANHO` (bytes), `ARQUIVO` (filename, e.g. `…docx`), `PATHARQUIVO` | Institutional documents. |
+| `TOTVSEducacional/Material/Institucional` | yes | `data[]` (32 items): `IDMATERIALSEC` (number), `DESCRICAO`, `DESCRICAOTIPOMATERIAL` (`Material P/ Aluno`, `Estágio`, `Todos`), `IDTIPOMATERIAL`, `TIPOUSUARIO`, `TIPOUSUARIOORIGEM`, `DATAEXPIRACAO`, `DATAINCLUSAO`, `CODUSRAUTOR`, `TAMANHO` (KB, see below), `ARQUIVO` (filename, e.g. `…docx`), `PATHARQUIVO` | Institutional documents. |
 | `TOTVSEducacional/Material` | yes (empty) | `data[]` empty for this student | Student-specific materials. |
 | `TOTVSEducacional/Material/Download?idMaterialSec=<id>&pathArquivo=<encodeURIComponent(PATHARQUIVO)>` | yes (headers checked) | HTTP 200, `content-type: application/octet-stream`, `content-disposition` present, file size from `content-length` (about 1 MB for a sample `.docx`) | **File download (GET).** The factory builds it this way. The body was not saved. Build the link from `IDMATERIALSEC` and `PATHARQUIVO`. |
 
-Page `#/arquivos` calls `Periodos`, `Widget/DadosWidgets?idFuncionalidade=11`, `Material/Institucional`, and `DisciplinasAlunoPeriodoLetivo?mostraApenasDiscEmCurso=true`.
+**Checked from a script (2026-11-03), shapes and headers only:**
+
+- `PATHARQUIVO` is a bare file name, the same as `ARQUIVO` in all 32 items, with spaces, accents and parentheses (no folders). `TAMANHO` is in **KB**, rounded down: 45 for a 46 999-byte file. `DATAEXPIRACAO` was set on 27 items, none in the past. `TIPOUSUARIO` was `1` or `3`, `TIPOUSUARIOORIGEM` `S`.
+- `Material` (the student's own) and `MateriaisTurmaDisciplina` for every class of 2026S2 were empty, so their item shape is not recorded. The page's views read the same fields from them as from `Material/Institucional`, plus `DATA`.
+- `Material/Download?idMaterialSec=<id>&pathArquivo=<PATHARQUIVO>`: HTTP 200, `content-type: application/octet-stream` for a PDF (it starts with `%PDF`). `Content-Disposition` names the file; a name that isn't ASCII comes as an RFC 2047 encoded word (`filename="=?utf-8?B?…?="`). The page builds the URL by hand with `encodeURIComponent(PATHARQUIVO)`; a standard query encoding (spaces as `+`) worked too.
+- A `pathArquivo` that is not the material's answered **403**.
+
+Page `#/arquivos` calls `Periodos`, `Widget/DadosWidgets?idFuncionalidade=11`, `Material/Institucional`, and `DisciplinasAlunoPeriodoLetivo?mostraApenasDiscEmCurso=true`; the class tab calls `MateriaisTurmaDisciplina?idTurmaDisc=<id>` for the chosen class.
 
 ---
 
@@ -279,26 +338,27 @@ All academic pages listed in the menu are now mapped (sections 4.5 to 4.9). The 
 
 ## 7. Known gaps and next steps
 
-1. Capture the lesson calls for a selected class in the browser (click a class on `#/aulas`), so the per-class request list comes from the page itself, not from the factory code.
+1. ~~Capture the lesson calls for a selected class.~~ Done from the page code and a script on 2026-11-03 (section 4.7).
 2. Find out why `PlanoAula/ArquivoAula` returns 403. It may need a permission that this account lacks. Do not try to get around it.
-3. Check the `Contexto/Selecao` request body. Needed only if the API must switch between enrollments.
+3. ~~Check the `Contexto/Selecao` request body.~~ Not needed: the context cookie alone switches enrollments (section 2.4).
 4. Find the session lifetime. Session expiry was observed (section 3), but the timing was not measured.
 5. Re-check `Widget/DadosWidgets` for `idFuncionalidade` 2, 3, 4, 5 and 11 separately. Only ID 6 has been checked alone.
 6. Build the API on the verified GET endpoints in section 4, plus `Periodos` and `DisciplinasAlunoPeriodoLetivo`.
 7. Only the login flow, `getcurrentuser`, `Contexto`, `NotaEtapa`, `FaltaEtapa` and `Aluno/Falta/Aula` have been checked from outside the browser (curl or the API's own client). The other academic endpoints were checked in the browser, where the context cookie was already set. They probably need the cookie too. Confirm each one from outside the browser.
-8. Check whether setting the context cookie to another enrollment's `IDCONTEXTOALUNO` is enough to switch periods. If it is, the API does not need the state-changing `Contexto/Selecao` (item 3). Until then, `/notas`, `/faltas` and `/faltas/aulas` have no `periodo` parameter: they answer for the enrollment the session picked.
+8. ~~Check whether setting the context cookie to another enrollment's `IDCONTEXTOALUNO` is enough to switch periods.~~ Resolved 2026-11-03: it is (section 2.4). The period-scoped endpoints take `periodo`.
 
 ### 7.1 Not yet recorded, handled defensively in `src/core`
 
 The client does not assume an answer to these. Each one notes what the code does today.
 
-1. **Login with a wrong password.** What the form POST returns is not recorded. The client treats anything other than a 3xx whose `Location` carries `key` as `login_falhou`.
+1. **Login with a wrong password.** What `TOTVSEducacional/Login` returns is not recorded. The client treats a 5xx as `portal_indisponivel`, and anything else without a 2xx and a non-empty string `data.value` as `login_falhou`, passing on `messages[]` when the body has them.
 2. **API calls with an expired session.** Section 3 records the app's page redirect, not what an API call returns. The client treats a 3xx or 401 on an API call as an expired session, logs in again once and retries.
 3. ~~**`ListarAlias` envelope.**~~ Resolved 2026-10-29: a bare array. The client now accepts only that.
 4. **`AutoLoginPortal` response.** Its status and body are not recorded. The client accepts any status below 400 and then checks the session with `getcurrentuser`.
 5. **Assessment values in `NotaEtapa`.** The value format (decimal comma or point, concepts) is not recorded. The API returns the raw text as `valor`, and `nota` only when the text is a plain number.
 6. **Field types not recorded** (`CODSTATUS`, `CODTURMA`, `IDPERLET` outside `Periodos`, `DTINICIO` format). The schemas in `src/core/schemas.ts` accept string or number and normalize.
 7. ~~**`Aluno/Falta/Aula` window bounds.**~~ Resolved 2026-10-29: the portal compares dates only. A window of noon to noon on one day returned that day's absences. `/faltas/aulas` still sends the start of `de` and the end of `ate` in local time. Still not recorded: values of `JUSTIFICADAPERSONALIZADO` and `ABONAFALTAPERSONALIZADO` other than `Não` and empty. The API passes their text on as is.
+8. **Lesson files (`SPLANOAULAARQUIVO`).** Always empty so far, so the item types are not recorded. `/aulas` reads the fields the page uses, all optional.
 
 The first run against the real portal (`npm run try -- notas`) answers items 1 to 6. Update this section with what it shows.
 
@@ -306,6 +366,7 @@ The first run against the real portal (`npm run try -- notas`) answers items 1 t
 
 - Never call `Logout` or `Contexto/Selecao` as a side effect.
 - After login, set the context cookie from `Contexto` before any academic call (section 2.4). Treat the "Usuário sem permissão" warning as a missing or wrong context cookie.
+- To ask about another enrollment, send that record's `IDCONTEXTOALUNO` in the context cookie of that request only.
 - Pass dates in ISO format, and keep the window to what the page uses.
 - Parse `NotaEtapa` and `FaltaEtapa` columns by name, since the names are dynamic.
 - Keep requests at a normal page-load rate.

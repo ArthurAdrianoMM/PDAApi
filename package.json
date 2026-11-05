@@ -11,7 +11,7 @@
     "dist"
   ],
   "engines": {
-    "node": ">=22"
+    "node": ">=22.19"
   },
   "scripts": {
     "build": "npm run build:web && tsc -p tsconfig.build.json",
@@ -21,6 +21,7 @@
     "dev:web": "vite --config web/vite.config.ts",
     "openapi": "tsx scripts/openapi.ts",
     "try": "tsx scripts/try.ts",
+    "probe": "tsx scripts/probe.ts",
     "typecheck": "tsc --noEmit && tsc --noEmit -p web",
     "test": "vitest run"
   },

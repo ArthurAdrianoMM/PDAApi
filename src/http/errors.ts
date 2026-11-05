@@ -24,6 +24,8 @@ export const ERROR_STATUS = {
   host_invalido: 403,
   origem_invalida: 403,
   nao_encontrado: 404,
+  periodo_inexistente: 404,
+  item_inexistente: 404,
   configuracao_invalida: 500,
   erro_interno: 500,
   sem_contexto: 502,

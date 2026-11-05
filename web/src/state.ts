@@ -1,6 +1,6 @@
 /**
  * Browser-side state: the login and its token, the connection to the local
- * server, the hash route and the theme.
+ * server and the hash route.
  */
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { parseRoute, type Route } from './lib/route';
@@ -206,24 +206,31 @@ export function useRoute(): Route {
   return parseRoute(hash);
 }
 
-// ── Theme ───────────────────────────────────────────────────────────
+// ── Sidebar groups ──────────────────────────────────────────────────
 
-export type Theme = 'dark' | 'light';
-const THEME_KEY = 'portal-aluno-theme';
+const CLOSED_GROUPS_KEY = 'portal-aluno-grupos-fechados';
 
-export function useTheme(): [Theme, () => void] {
-  const [theme, setTheme] = useState<Theme>(() =>
-    storageGet(() => localStorage, THEME_KEY) === 'light' ? 'light' : 'dark',
-  );
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-  }, [theme]);
-  const toggle = useCallback(() => {
-    setTheme((current) => {
-      const next = current === 'dark' ? 'light' : 'dark';
-      storageSet(() => localStorage, THEME_KEY, next);
+function loadClosedGroups(): Set<string> {
+  try {
+    const saved: unknown = JSON.parse(storageGet(() => localStorage, CLOSED_GROUPS_KEY) ?? '[]');
+    return new Set(Array.isArray(saved) ? saved.filter((name): name is string => typeof name === 'string') : []);
+  } catch {
+    return new Set();
+  }
+}
+
+/** The sidebar groups the person closed, remembered in this browser. Every group starts open. */
+export function useClosedGroups(): [ReadonlySet<string>, (name: string, open: boolean) => void] {
+  const [closed, setClosed] = useState(loadClosedGroups);
+  const setOpen = useCallback((name: string, open: boolean) => {
+    setClosed((current) => {
+      if (current.has(name) !== open) return current;
+      const next = new Set(current);
+      if (open) next.delete(name);
+      else next.add(name);
+      storageSet(() => localStorage, CLOSED_GROUPS_KEY, next.size ? JSON.stringify([...next]) : null);
       return next;
     });
   }, []);
-  return [theme, toggle];
+  return [closed, setOpen];
 }

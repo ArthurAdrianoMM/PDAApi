@@ -1,15 +1,21 @@
-import { Cookie, CookieJar } from 'tough-cookie';
+import { Cookie, CookieJar, cookieCompare } from 'tough-cookie';
 import type { PortalConfig } from './config.js';
 import { PortalError } from './errors.js';
 import { createThrottle } from './throttle.js';
+import './tls.js';
 
 export type FetchFn = typeof fetch;
 
 export interface PortalRequest {
   method: 'GET' | 'POST';
   url: URL;
-  /** Sent as `application/x-www-form-urlencoded`. */
-  form?: Record<string, string>;
+  /** Sent as `application/json`. */
+  json?: unknown;
+  /**
+   * Cookies for this request only, replacing the jar's cookies of the same
+   * name. Values are sent as is. The jar itself does not change.
+   */
+  cookies?: Record<string, string>;
 }
 
 export interface PortalResponse {
@@ -19,13 +25,22 @@ export interface PortalResponse {
   body: string;
 }
 
+/** A response read as bytes, for file downloads. */
+export interface PortalBytesResponse {
+  status: number;
+  location: string | null;
+  /** `Content-Type`, `Content-Disposition` and the rest, as the portal sent them. */
+  headers: Headers;
+  bytes: Uint8Array<ArrayBuffer>;
+}
+
 /** The frontend's `accept` header for API calls (ENDPOINTS.md 1). */
 const ACCEPT = 'application/json, text/plain, */*';
 
 /**
  * Low-level transport to the portal: one in-memory cookie jar, throttled
- * requests, and no automatic redirects. Redirects carry the login key and the
- * session-expiry signal, so callers must see them. Never logs anything.
+ * requests, and no automatic redirects. Redirects carry the session-expiry
+ * signal, so callers must see them. Never logs anything.
  */
 export class PortalHttp {
   readonly #config: PortalConfig;
@@ -40,7 +55,20 @@ export class PortalHttp {
   }
 
   request(req: PortalRequest): Promise<PortalResponse> {
-    return this.#schedule(() => this.#send(req));
+    return this.#schedule(async () => {
+      const res = await this.#send(req);
+      const body = await this.#read(res, req, () => res.text());
+      return { status: res.status, location: res.headers.get('location'), body };
+    });
+  }
+
+  /** Like `request`, reading the body as bytes. */
+  requestBytes(req: PortalRequest): Promise<PortalBytesResponse> {
+    return this.#schedule(async () => {
+      const res = await this.#send(req);
+      const bytes = await this.#read(res, req, async () => new Uint8Array(await res.arrayBuffer()));
+      return { status: res.status, location: res.headers.get('location'), headers: res.headers, bytes };
+    });
   }
 
   /** Sets a host-only cookie on the portal origin, path `/`. The value is stored as is, not URL-encoded. */
@@ -54,16 +82,17 @@ export class PortalHttp {
     this.#jar = new CookieJar();
   }
 
-  async #send({ method, url, form }: PortalRequest): Promise<PortalResponse> {
+  /** Sends the request and stores the cookies it sets. The body is left for the caller to read. */
+  async #send({ method, url, json, cookies: overrides = {} }: PortalRequest): Promise<Response> {
     const headers = new Headers({ accept: ACCEPT, 'user-agent': this.#config.userAgent });
-    const cookies = await this.#jar.getCookieString(url.href);
-    if (cookies) headers.set('cookie', cookies);
+    const jar = (await this.#jar.getCookies(url.href)).sort(cookieCompare).filter((c) => !Object.hasOwn(overrides, c.key));
+    const cookies = [...jar.map((c) => c.cookieString()), ...Object.entries(overrides).map(([name, value]) => `${name}=${value}`)];
+    if (cookies.length > 0) headers.set('cookie', cookies.join('; '));
 
     let body: string | undefined;
-    if (form) {
-      // fetch sets Content-Length for a string body; the login form needs it (ENDPOINTS.md 2.2).
-      body = new URLSearchParams(form).toString();
-      headers.set('content-type', 'application/x-www-form-urlencoded');
+    if (json !== undefined) {
+      body = JSON.stringify(json);
+      headers.set('content-type', 'application/json');
     }
 
     let res: Response;
@@ -82,14 +111,14 @@ export class PortalHttp {
     for (const setCookie of res.headers.getSetCookie()) {
       await this.#jar.setCookie(setCookie, url.href, { ignoreError: true });
     }
+    return res;
+  }
 
-    let text: string;
+  async #read<T>(res: Response, { method, url }: PortalRequest, read: () => Promise<T>): Promise<T> {
     try {
-      text = await res.text();
+      return await read();
     } catch (cause) {
       throw new PortalError('portal_indisponivel', `A resposta do portal foi interrompida (${method} ${url.pathname}).`, { cause });
     }
-
-    return { status: res.status, location: res.headers.get('location'), body: text };
   }
 }

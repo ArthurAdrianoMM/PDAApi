@@ -1,9 +1,8 @@
 import { z } from 'zod';
 import { codeLike, optionalCode, optionalText } from '../core/schemas.js';
+import { DIAS, diaDaSemana, hoje } from './dates.js';
 import { defineOperation } from './define.js';
-
-/** `DIASEMANA` as the portal's page reads it: `'1'` is Sunday, `'7'` Saturday (ENDPOINTS.md 4.3). */
-const DIAS = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'] as const;
+import { periodoInput, periodoOutput } from './periodo.js';
 
 const hora = z.string().regex(/^\d{2}:\d{2}$/);
 /** `YYYY-MM-DDTHH:mm:ss` without a zone; only the date matters for a slot's validity. */
@@ -81,7 +80,7 @@ function toHorario(row: AulaRow): Horario {
   const diaSemana = Number(row.DIASEMANA);
   return {
     diaSemana,
-    dia: DIAS[diaSemana - 1]!,
+    dia: diaDaSemana(diaSemana),
     inicio: row.HORAINICIAL,
     fim: row.HORAFINAL,
     idTurmaDisc: row.IDTURMADISC,
@@ -97,13 +96,6 @@ function toHorario(row: AulaRow): Horario {
   };
 }
 
-/** Today in this machine's time zone, `YYYY-MM-DD`. */
-function today(): string {
-  const now = new Date();
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-}
-
 export const obterHorario = defineOperation({
   id: 'obterHorario',
   method: 'get',
@@ -111,7 +103,7 @@ export const obterHorario = defineOperation({
   tag: 'Rotina',
   summary: 'Quadro de horário',
   description:
-    'Retorna o quadro de horário semanal da matrícula que a sessão está usando: um item por aula na semana, ' +
+    'Retorna o quadro de horário semanal de um período (padrão: o da matrícula da sessão): um item por aula na semana, ' +
     'em ordem de dia e hora, e as faixas de horário da grade. O período respondido vem em `periodo`.',
   callouts: [
     {
@@ -143,9 +135,10 @@ export const obterHorario = defineOperation({
       .boolean()
       .default(false)
       .describe('Quando `true`, inclui os horários cuja vigência já terminou, como "Mostrar todos" no portal.'),
+    periodo: periodoInput,
   }),
   output: z.object({
-    periodo: z.string().describe('Código do período da matrícula da sessão (ex.: `2026S2`).'),
+    periodo: periodoOutput,
     faixas: z.array(faixaSchema).describe('Faixas de horário da grade, em ordem, sem repetição.'),
     horarios: z.array(horarioSchema).describe('Uma entrada por aula na semana, em ordem de dia e hora de início.'),
   }),
@@ -173,19 +166,21 @@ export const obterHorario = defineOperation({
       },
     ],
   },
-  async handler(session, { incluirEncerrados }) {
-    const { context } = await session.ensureSession();
+  async handler(session, { incluirEncerrados, periodo }) {
+    const context = await session.contextFor(periodo);
     // No parameters: the portal answers for the context in the cookie, like its own page (ENDPOINTS.md 4.3).
-    const { SHorarioAluno: rows } = await session.getData('TOTVSEducacional/QuadroHorarioAluno', {}, upstreamSchema);
+    const { SHorarioAluno: rows } = await session.getData('TOTVSEducacional/QuadroHorarioAluno', {}, upstreamSchema, {
+      periodo,
+    });
 
     const faixas = new Map<string, { inicio: string; fim: string }>();
     for (const row of rows) faixas.set(`${row.HORAINICIAL}-${row.HORAFINAL}`, { inicio: row.HORAINICIAL, fim: row.HORAFINAL });
 
-    const hoje = today();
+    const today = hoje();
     const horarios = rows
       .filter((row): row is AulaRow => row.DIASEMANA !== '0')
       .map(toHorario)
-      .filter((horario) => incluirEncerrados || horario.vigencia === null || horario.vigencia.fim >= hoje)
+      .filter((horario) => incluirEncerrados || horario.vigencia === null || horario.vigencia.fim >= today)
       .sort((a, b) => a.diaSemana - b.diaSemana || a.inicio.localeCompare(b.inicio) || a.fim.localeCompare(b.fim));
 
     return {

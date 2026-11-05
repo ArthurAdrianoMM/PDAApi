@@ -1,7 +1,8 @@
 /** The docs page's logic (web/src/lib), checked against the real generated spec. */
 import { describe, expect, it } from 'vitest';
 import { generateOpenApi } from '../src/openapi/generate.js';
-import { operations } from '../src/operations/index.js';
+import { TAGS, defineFileOperation, isFileOperation, operations } from '../src/operations/index.js';
+import { listarPeriodos } from '../src/operations/periodos.js';
 import { tokenizeJson } from '../web/src/lib/json.js';
 import { parseBlocks, parseInline } from '../web/src/lib/markdown.js';
 import { loginHref, parseRoute, routeHref } from '../web/src/lib/route.js';
@@ -16,13 +17,18 @@ const byId = (id: string) => model.operations.find((op) => op.id === id) as DocO
 describe('spec model', () => {
   it('has every operation, grouped by tag, with its example', () => {
     expect(model.operations.map((op) => op.id).sort()).toEqual(operations.map((op) => op.id).sort());
-    for (const op of operations) expect(byId(op.id).example).toEqual(op.example);
-    expect(model.tags.map((t) => t.name)).toEqual(['Período', 'Desempenho', 'Rotina']);
+    for (const op of operations) {
+      if (isFileOperation(op)) expect(byId(op.id)).toMatchObject({ example: undefined, file: { mediaTypes: op.file.mediaTypes } });
+      else expect(byId(op.id)).toMatchObject({ example: op.example, file: null });
+    }
+    const usedTags = TAGS.filter((tag) => operations.some((op) => op.tag === tag.name)).map((tag) => tag.name);
+    expect(model.tags.map((t) => t.name)).toEqual(usedTags);
   });
 
   it('reads parameters, errors, upstream calls and the portal address', () => {
     expect(byId('listarDisciplinas').parameters).toEqual([
       expect.objectContaining({ name: 'apenasEmCurso', in: 'query', required: false, schema: { type: 'boolean', default: false } }),
+      expect.objectContaining({ name: 'periodo', in: 'query', required: false }),
     ]);
     expect(byId('obterNotas').errors).toEqual(
       expect.arrayContaining([
@@ -147,3 +153,26 @@ describe('routes', () => {
     }
   });
 });
+
+describe('file operations', () => {
+  const file = defineFileOperation({
+    ...listarPeriodos,
+    id: 'baixarTeste',
+    path: '/teste/arquivo',
+    file: { mediaTypes: ['application/pdf'], description: 'Um PDF.' },
+    handler: async () => ({ nome: null, tipo: 'application/pdf', conteudo: new Uint8Array() }),
+  });
+  const fileModel = buildModel(generateOpenApi({ operations: [file] }) as unknown as OpenApiDocument);
+
+  it('reads the media types and the description of a file response', () => {
+    expect(fileModel.operations[0]).toMatchObject({ file: { mediaTypes: ['application/pdf'], description: 'Um PDF.' }, example: undefined });
+  });
+
+  it('writes samples that save the file', () => {
+    expect(buildSample('curl', 'http://x/a', true)).toContain('curl -OJ "http://x/a"');
+    expect(buildSample('javascript', 'http://x/a', true)).toContain('writeFile("arquivo", Buffer.from(await res.arrayBuffer()))');
+    expect(buildSample('python', 'http://x/a', true)).toContain('open("arquivo", "wb").write(r.content)');
+    expect(buildSample('python', 'http://x/a')).toContain('data = r.json()');
+  });
+});
+

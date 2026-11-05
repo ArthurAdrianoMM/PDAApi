@@ -6,7 +6,7 @@ import { StartPage } from './components/StartPage';
 import { TopBar } from './components/TopBar';
 import { searchOperations } from './lib/search';
 import { buildModel, type DocModel, type OpenApiDocument } from './lib/spec';
-import { routeHref, useConnection, useRoute, useTheme } from './state';
+import { routeHref, useConnection, useRoute } from './state';
 
 /** The page sits at /docs/; the document is served next to it, at /openapi.json. */
 const SPEC_URL = '../openapi.json';
@@ -17,7 +17,6 @@ export function App() {
   const [query, setQuery] = useState('');
   const route = useRoute();
   const connection = useConnection();
-  const [theme, toggleTheme] = useTheme();
 
   useEffect(() => {
     fetch(SPEC_URL, { cache: 'no-store' })
@@ -63,7 +62,7 @@ export function App() {
 
   if (route.kind === 'entrar') {
     return (
-      <LoginPage title={model.title} version={model.version} theme={theme} connection={connection} voltar={route.voltar} />
+      <LoginPage title={model.title} version={model.version} connection={connection} voltar={route.voltar} />
     );
   }
 
@@ -80,8 +79,6 @@ export function App() {
         }}
         connection={connection}
         route={route}
-        theme={theme}
-        onToggleTheme={toggleTheme}
       />
       <div className="layout">
         <Sidebar model={model} route={route} results={results} connection={connection.state} />

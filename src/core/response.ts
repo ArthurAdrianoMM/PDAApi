@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { PortalError, type PortalMessage } from './errors.js';
-import type { PortalResponse } from './http.js';
+import type { PortalBytesResponse, PortalResponse } from './http.js';
 
 /** Key the portal puts in `data` when the call failed on its side (ENDPOINTS.md 2.4, 4.5). */
 const RM_EXCEPTION_KEY = 'RMException:Message';
@@ -23,7 +23,7 @@ const envelopeSchema = z.looseObject({
  * a rejected session: the portal sends expired sessions to its login page
  * (ENDPOINTS.md 3). The caller decides whether to log in again.
  */
-export function assertOk(res: PortalResponse, label: string): void {
+export function assertOk(res: Pick<PortalResponse, 'status'>, label: string): void {
   const { status } = res;
   if (status >= 200 && status < 300) return;
   if ((status >= 300 && status < 400) || status === 401) {
@@ -79,4 +79,58 @@ export function readEnvelope<S extends z.ZodType>(json: unknown, dataSchema: S, 
   }
 
   return validate(dataSchema, data, label);
+}
+
+/** A file the portal sent. */
+export interface PortalFile {
+  bytes: Uint8Array<ArrayBuffer>;
+  /** `Content-Type`, or `application/octet-stream` when the portal sends none. */
+  contentType: string;
+  /** The name in `Content-Disposition`, or `null` when there is none. */
+  filename: string | null;
+}
+
+/** RFC 2047 encoded words (`=?utf-8?B?…?=`), which the portal uses for names that aren't ASCII (ENDPOINTS.md 4.9). */
+function decodeEncodedWords(text: string): string {
+  return text.replace(/=\?([^?]+)\?([BbQq])\?([^?]*)\?=/g, (word, charset: string, encoding: string, data: string) => {
+    try {
+      const bytes =
+        encoding.toUpperCase() === 'B'
+          ? Uint8Array.from(atob(data), (c) => c.charCodeAt(0))
+          : Uint8Array.from(data.replace(/_/g, ' ').replace(/=([0-9A-Fa-f]{2})/g, (_, hex: string) => String.fromCharCode(parseInt(hex, 16))), (c) => c.charCodeAt(0));
+      return new TextDecoder(charset, { fatal: true }).decode(bytes);
+    } catch {
+      return word;
+    }
+  });
+}
+
+/** `filename*=UTF-8''…` (RFC 6266) wins over `filename=…`, quoted or not, which may hold RFC 2047 encoded words. */
+export function filenameOf(disposition: string | null): string | null {
+  if (!disposition) return null;
+  const extended = /filename\*\s*=\s*([^']*)'[^']*'([^;]+)/i.exec(disposition);
+  if (extended) {
+    try {
+      return decodeURIComponent(extended[2]!.trim()) || null;
+    } catch {
+      // Fall back to the plain parameter.
+    }
+  }
+  const plain = /filename\s*=\s*(?:"((?:[^"\\]|\\.)*)"|([^;]+))/i.exec(disposition);
+  const name = (plain?.[1]?.replace(/\\(.)/g, '$1') ?? plain?.[2])?.trim();
+  return name ? decodeEncodedWords(name) : null;
+}
+
+/**
+ * Reads a download. A JSON answer instead of a file is the portal reporting an
+ * error in its envelope (or an unexpected answer), never the file itself.
+ */
+export function readFile(res: PortalBytesResponse, label: string): PortalFile {
+  const contentType = res.headers.get('content-type')?.trim() || 'application/octet-stream';
+  if (/^application\/json\b/i.test(contentType)) {
+    const json = parseJson({ status: res.status, location: res.location, body: new TextDecoder().decode(res.bytes) }, label);
+    readEnvelope(json, z.unknown(), label);
+    throw new PortalError('resposta_inesperada', `${label} respondeu com JSON em vez de um arquivo.`, { status: res.status });
+  }
+  return { bytes: res.bytes, contentType, filename: filenameOf(res.headers.get('content-disposition')) };
 }

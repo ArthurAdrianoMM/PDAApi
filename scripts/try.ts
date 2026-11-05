@@ -5,13 +5,15 @@
  *   npm run try -- notas
  *   npm run try -- listarDisciplinas '{"apenasEmCurso":true}'
  *
+ * A file operation prints the file's name, type, size and first bytes, not the file.
+ *
  * The user and password come from PORTAL_ALUNO_USER / PORTAL_ALUNO_PASSWORD or
  * are asked in the terminal. Output goes to stdout and contains your own data.
  */
 import { z } from 'zod';
 import { terminalCredentials } from '../src/cli/prompt.js';
 import { PortalSession, isPortalError } from '../src/core/index.js';
-import { operations, runOperation, type Operation } from '../src/operations/index.js';
+import { isFileOperation, operations, runFileOperation, runOperation, type Operation } from '../src/operations/index.js';
 
 function resolve(name: string | undefined): Operation | undefined {
   if (!name) return undefined;
@@ -42,8 +44,14 @@ async function main(): Promise<void> {
 
   const session = new PortalSession({ credentials: terminalCredentials() });
   try {
-    const result = await runOperation(operation, session, input);
-    console.log(JSON.stringify(result, null, 2));
+    if (isFileOperation(operation)) {
+      // The file itself stays out of the terminal: its name, type, size and first bytes are enough to check it.
+      const file = await runFileOperation(operation, session, input);
+      const inicio = [...file.conteudo.slice(0, 8)].map((b) => b.toString(16).padStart(2, '0')).join(' ');
+      console.log(JSON.stringify({ nome: file.nome, tipo: file.tipo, bytes: file.conteudo.length, inicio }, null, 2));
+    } else {
+      console.log(JSON.stringify(await runOperation(operation, session, input), null, 2));
+    }
   } catch (error) {
     if (isPortalError(error)) {
       console.error(`Erro [${error.code}]: ${error.message}`);

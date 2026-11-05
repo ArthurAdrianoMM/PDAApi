@@ -30,16 +30,20 @@ export function buildUrl(base: string, operation: DocOperation, values: Record<s
   return `${base.replace(/\/+$/, '')}${path}${search ? `?${search}` : ''}`;
 }
 
-export function buildSample(language: SampleLanguage, url: string): string {
+/** A request sample. With `file`, it saves the answer as a file instead of reading JSON. */
+export function buildSample(language: SampleLanguage, url: string, file = false): string {
   switch (language) {
     case 'curl':
-      return [`curl "${url}" \\`, `  -H "Authorization: Bearer $${TOKEN_VARIABLE}"`].join('\n');
+      return [`curl ${file ? '-OJ ' : ''}"${url}" \\`, `  -H "Authorization: Bearer $${TOKEN_VARIABLE}"`].join('\n');
     case 'javascript':
       return [
+        ...(file ? ['import { writeFile } from "node:fs/promises";', ''] : []),
         `const res = await fetch("${url}", {`,
         `  headers: { Authorization: \`Bearer \${process.env.${TOKEN_VARIABLE}}\` },`,
         '});',
-        'const data = await res.json();',
+        ...(file
+          ? ['await writeFile("arquivo", Buffer.from(await res.arrayBuffer()));']
+          : ['const data = await res.json();']),
       ].join('\n');
     case 'python':
       return [
@@ -50,7 +54,7 @@ export function buildSample(language: SampleLanguage, url: string): string {
         `    "${url}",`,
         `    headers={"Authorization": f"Bearer {os.environ['${TOKEN_VARIABLE}']}"},`,
         ')',
-        'data = r.json()',
+        ...(file ? ['open("arquivo", "wb").write(r.content)'] : ['data = r.json()']),
       ].join('\n');
   }
 }

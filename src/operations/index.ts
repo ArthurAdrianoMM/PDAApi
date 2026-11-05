@@ -1,22 +1,53 @@
+import { listarAulas } from './aulas.js';
+import { listarAvaliacoesInstitucionais } from './avaliacoes-institucionais.js';
+import { listarAulasDaDisciplina, obterAula } from './aulas-disciplina.js';
+import { listarEventosDoCalendario } from './calendario.js';
+import { baixarFoto, obterPerfil } from './conta.js';
 import type { Operation } from './define.js';
 import { listarDisciplinas } from './disciplinas.js';
 import { obterFaltas } from './faltas.js';
+import { listarEtapasDaDisciplina } from './etapas.js';
 import { listarFaltasPorAula } from './faltas-aulas.js';
+import { baixarMaterial, listarMateriais, listarMateriaisDaDisciplina } from './materiais.js';
+import { obterGradeCurricular } from './grade-curricular.js';
 import { obterHorario } from './horario.js';
 import { obterNotas } from './notas.js';
 import { listarPeriodos } from './periodos.js';
 
-export { defineOperation, runOperation, type Callout, type Operation } from './define.js';
+export {
+  defineFileOperation,
+  defineOperation,
+  isFileOperation,
+  runFileOperation,
+  runOperation,
+  type Callout,
+  type FileOperation,
+  type FileResult,
+  type JsonOperation,
+  type Operation,
+} from './define.js';
 export { TAGS, type OperationTag } from './tags.js';
 
 /** Every operation of the API, in docs order. */
 export const operations: readonly Operation[] = [
+  obterPerfil,
+  baixarFoto,
   listarPeriodos,
   listarDisciplinas,
   obterNotas,
   obterFaltas,
   listarFaltasPorAula,
+  listarEtapasDaDisciplina,
+  obterGradeCurricular,
   obterHorario,
+  listarAulas,
+  listarAulasDaDisciplina,
+  obterAula,
+  listarEventosDoCalendario,
+  listarMateriais,
+  listarMateriaisDaDisciplina,
+  baixarMaterial,
+  listarAvaliacoesInstitucionais,
 ];
 
 export function findOperation(id: string): Operation | undefined {

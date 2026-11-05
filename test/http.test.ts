@@ -3,18 +3,25 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../src/http/app.js';
-import { defineOperation, type Operation } from '../src/operations/index.js';
+import { defineFileOperation, defineOperation, type Operation } from '../src/operations/index.js';
 import { listarPeriodos } from '../src/operations/periodos.js';
 import {
   ORIGIN,
   PASSWORD,
   USER,
   academicRoute,
+  contextRoute,
   createTestSession,
   envelope,
   fakeSession,
   type FakePortalOptions,
 } from './support/fake-portal.js';
+import { AULAS_DISCIPLINA, PLANO_AULA } from './fixtures/aulas-disciplina.js';
+import { CALENDARIO } from './fixtures/calendario.js';
+import { AVALIACOES_INSTITUCIONAIS, FOTO_BASE64, INFORMACOES_PESSOAIS } from './fixtures/conta.js';
+import { ETAPAS_FALTA } from './fixtures/etapas.js';
+import { MATERIAIS_INSTITUCIONAIS, PDF, downloadResponse } from './fixtures/materiais.js';
+import { GRADE_CURRICULAR } from './fixtures/grade-curricular.js';
 
 const TOKEN = 'token-de-teste';
 const PORT = 4321;
@@ -256,9 +263,23 @@ describe('input', () => {
   });
 
   it('rejects unknown parameters', async () => {
-    const res = await setup().authed('/notas?periodo=2026S1');
+    const res = await setup().authed('/notas?semestre=2026S1');
     expect(res.status).toBe(400);
-    expect(await res.json()).toMatchObject({ erro: 'parametro_invalido', detalhes: [{ campo: 'periodo' }] });
+    expect(await res.json()).toMatchObject({ erro: 'parametro_invalido', detalhes: [{ campo: 'semestre' }] });
+  });
+
+  it('answers for the period asked, and 404 for one the account does not have', async () => {
+    const { authed, portal } = setup({
+      routes: { 'TOTVSEducacional/NotaEtapa': contextRoute({ [CONTEXT_ID]: { Notas: [] }, 'ctx+A/1==': { Notas: [] } }) },
+    });
+    const res = await authed('/notas?periodo=2026S1');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ periodo: '2026S1', disciplinas: [] });
+    expect(portal.cookiesOf(portal.requests.at(-1)!).get('EduContextoAlunoResponsavelAPI')).toBe('ctx+A/1==');
+
+    const missing = await authed('/notas?periodo=1999S1');
+    expect(missing.status).toBe(404);
+    expect(await missing.json()).toMatchObject({ erro: 'periodo_inexistente' });
   });
 
   it('serves a nested path and keeps dates as text', async () => {
@@ -313,5 +334,166 @@ describe('errors', () => {
     expect(body).toMatchObject({ erro: 'erro_interno' });
     expect(JSON.stringify(body)).not.toContain('detalhe interno');
     expect(logs.some((line) => line.includes('detalhe interno'))).toBe(true);
+  });
+});
+
+describe('endpoints end to end', () => {
+  it('GET /aulas: lessons of a window, with the context ID the portal needs', async () => {
+    const lesson = {
+      IDHORARIOTURMA: 90121, DIASEMANA: 3, HORAINICIAL: '18:30', HORAFINAL: '19:20', PREDIO: null, BLOCO: null, SALA: null,
+      DATA: '2026-11-03T00:00:00', AULA: 21, IDTURMADISC: 48213, CONTEUDO: 'Rotas.', CONTEUDOEFETIVO: null, LICAOCASA: null,
+      CODTURMA: 'DS-2026-A', CODDISC: 'PW2', NOMEDISC: 'Programação Web II', CODSUBTURMA: '', CONFIRMADO: 'N',
+      IDPLANOAULA: 7310452, TIPOAULA: 'T', URLAULAONLINE: null, OBSERVACAO: null,
+    };
+    const { authed, portal } = setup({
+      routes: { 'TOTVSEducacional/v1/planoaulas/aulas': academicRoute(CONTEXT_ID, { SPlanoAula: [lesson], SPLANOAULAARQUIVO: [] }) },
+    });
+
+    const res = await authed('/aulas?de=2026-11-03&ate=2026-11-06');
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { aulas: Record<string, unknown>[] };
+    expect(body).toMatchObject({ periodo: '2026S2', de: '2026-11-03', ate: '2026-11-06' });
+    expect(body.aulas).toEqual([expect.objectContaining({ idPlanoAula: 7310452, dia: 'terca', tipo: { codigo: 'T', descricao: 'Aula teórica' } })]);
+    const call = portal.requests.find((r) => r.url.pathname.endsWith('v1/planoaulas/aulas'))!;
+    expect(call.url.searchParams.get('idContextoAluno')).toBe(CONTEXT_ID);
+
+    const tooLong = await authed('/aulas?de=2026-01-01&ate=2026-03-01');
+    expect(tooLong.status).toBe(400);
+    expect(await tooLong.json()).toMatchObject({ erro: 'parametro_invalido', detalhes: [{ campo: 'ate' }] });
+  });
+
+  it('GET /grade-curricular: the grade by group, filtered by situation', async () => {
+    const { authed } = setup({
+      routes: { 'TOTVSEducacional/GradeCurricular/EnsinoSuperior': academicRoute(CONTEXT_ID, GRADE_CURRICULAR) },
+    });
+    const res = await authed('/grade-curricular?situacao=em_curso');
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { grupos: { codigo: number; disciplinas: { codigo: string }[] }[] };
+    expect(body).toMatchObject({ periodo: '2026S2', curso: { codigo: 'DS' }, cargaHoraria: { curso: 1200 } });
+    expect(body.grupos.map((g) => [g.codigo, g.disciplinas.map((d) => d.codigo)])).toEqual([[2, ['PW2']]]);
+
+    const wrong = await authed('/grade-curricular?situacao=todas');
+    expect(wrong.status).toBe(400);
+    expect(await wrong.json()).toMatchObject({ erro: 'parametro_invalido', detalhes: [{ campo: 'situacao' }] });
+  });
+
+  it('GET /disciplinas/{idTurmaDisc}/aulas and /aulas/{idPlanoAula}: path parameters, typed and checked', async () => {
+    const { authed } = setup({
+      routes: {
+        'TOTVSEducacional/DisciplinasAlunoPeriodoLetivo': academicRoute(CONTEXT_ID, [
+          { IDTURMADISC: 48213, CODDISC: 'PW2', NOME: 'Programação Web II', CODTURMA: 'DS-2026-A', CODSUBTURMA: null, IDPERLET: 1042, CODSTATUS: 20, DESCRICAO: 'Matriculado' },
+        ]),
+        'TOTVSEducacional/AulasDisciplina/48213': academicRoute(CONTEXT_ID, AULAS_DISCIPLINA),
+        'TOTVSEducacional/PlanoAula/Aula': academicRoute(CONTEXT_ID, PLANO_AULA),
+      },
+    });
+
+    const list = await authed('/disciplinas/48213/aulas?de=2026-11-02&ate=2026-11-08');
+    expect(list.status).toBe(200);
+    expect(await list.json()).toMatchObject({ idTurmaDisc: 48213, dias: [{ data: '2026-11-03' }, { data: '2026-11-05' }] });
+
+    const one = await authed('/disciplinas/48213/aulas/7310021');
+    expect(one.status).toBe(200);
+    expect(await one.json()).toMatchObject({ aula: { idPlanoAula: 7310021, realizada: { inicio: '18:30' } } });
+
+    const notANumber = await authed('/disciplinas/pw2/aulas');
+    expect(notANumber.status).toBe(400);
+    expect(await notANumber.json()).toMatchObject({ erro: 'parametro_invalido', detalhes: [{ campo: 'idTurmaDisc' }] });
+
+    const otherClass = await authed('/disciplinas/1/aulas');
+    expect(otherClass.status).toBe(404);
+    expect(await otherClass.json()).toMatchObject({ erro: 'item_inexistente' });
+  });
+
+  it('GET /calendario: a window of the whole calendar, one portal call', async () => {
+    const { authed, portal } = setup({ routes: { 'TOTVSEducacional/Aluno/CalendarioAluno': academicRoute(CONTEXT_ID, CALENDARIO) } });
+    const res = await authed('/calendario?de=2026-11-03&ate=2026-11-03&tipo=aula');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ de: '2026-11-03', ate: '2026-11-03', eventos: [{ id: 0 }, { id: 1 }] });
+    expect(portal.paths().filter((p) => p.endsWith('CalendarioAluno'))).toHaveLength(1);
+
+    const unknown = await authed('/calendario?periodo=2026S1');
+    expect(unknown.status).toBe(400);
+  });
+
+  it('GET /disciplinas/{idTurmaDisc}/etapas: grade and absence stages of one class', async () => {
+    const { authed } = setup({
+      routes: {
+        'TOTVSEducacional/DisciplinasAlunoPeriodoLetivo': academicRoute(CONTEXT_ID, [
+          { IDTURMADISC: 48213, CODDISC: 'PW2', NOME: 'Programação Web II', CODTURMA: 'DS-2026-A', CODSUBTURMA: null, IDPERLET: 1042, CODSTATUS: 20, DESCRICAO: 'Matriculado' },
+        ]),
+        'TOTVSEducacional/EtapasTurmaDisc': academicRoute(CONTEXT_ID, ETAPAS_FALTA),
+      },
+    });
+    const res = await authed('/disciplinas/48213/etapas?tipo=falta');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ idTurmaDisc: 48213, etapas: [{ codigo: 0, tipo: 'falta', frequenciaMinima: 75 }] });
+    expect((await authed('/disciplinas/48213/etapas?tipo=prova')).status).toBe(400);
+  });
+
+  it('serves a file operation as a sandboxed download', async () => {
+    const pdf = defineFileOperation({
+      ...listarPeriodos,
+      id: 'baixarTeste',
+      path: '/teste/arquivo',
+      file: { mediaTypes: ['application/pdf'], description: 'Um PDF.' },
+      handler: async () => ({ nome: 'Calendário 2026.pdf', tipo: 'application/pdf', conteudo: new Uint8Array([0x25, 0x50, 0x44, 0x46]) }),
+    });
+    const { authed } = setup({}, [pdf]);
+    const res = await authed('/teste/arquivo');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe('application/pdf');
+    expect(res.headers.get('content-disposition')).toBe(`attachment; filename="Calendario 2026.pdf"; filename*=UTF-8''Calend%C3%A1rio%202026.pdf`);
+    expect(res.headers.get('content-security-policy')).toBe("default-src 'none'; sandbox");
+    expect(res.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(res.headers.get('cache-control')).toBe('no-store');
+    expect(new Uint8Array(await res.arrayBuffer())).toEqual(new Uint8Array([0x25, 0x50, 0x44, 0x46]));
+  });
+
+  it('GET /materiais and /materiais/{idMaterial}/arquivo: list, then download as a sandboxed attachment', async () => {
+    const { authed } = setup({
+      routes: {
+        'TOTVSEducacional/Material/Institucional': academicRoute(CONTEXT_ID, MATERIAIS_INSTITUCIONAIS),
+        'TOTVSEducacional/Material': academicRoute(CONTEXT_ID, []),
+        'TOTVSEducacional/Material/Download': () => downloadResponse(),
+      },
+    });
+    const list = await authed('/materiais');
+    expect(list.status).toBe(200);
+    const { materiais } = (await list.json()) as { materiais: { idMaterial: number }[] };
+    expect(materiais.map((m) => m.idMaterial)).toEqual([3201, 3150]);
+
+    const res = await authed('/materiais/3150/arquivo');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe('application/pdf');
+    expect(res.headers.get('content-disposition')).toContain("filename*=UTF-8''Calend%C3%A1rio%20acad%C3%AAmico%202026%20(vers%C3%A3o%202).pdf");
+    expect(res.headers.get('content-security-policy')).toBe("default-src 'none'; sandbox");
+    expect(new Uint8Array(await res.arrayBuffer())).toEqual(PDF);
+
+    const missing = await authed('/materiais/1/arquivo');
+    expect(missing.status).toBe(404);
+    expect(await missing.json()).toMatchObject({ erro: 'item_inexistente' });
+  });
+
+  it('GET /eu, /eu/foto and /avaliacoes-institucionais', async () => {
+    const { authed } = setup({
+      routes: {
+        'TOTVSEducacional/Aluno/InformacoesPessoaisBasicas': academicRoute(CONTEXT_ID, INFORMACOES_PESSOAIS),
+        'TOTVSEducacional/AvaliacoesInstitucionais': academicRoute(CONTEXT_ID, AVALIACOES_INSTITUCIONAIS),
+      },
+    });
+    const eu = await authed('/eu');
+    expect(eu.status).toBe(200);
+    expect(await eu.json()).toMatchObject({ nome: 'Aluno Teste da Silva', login: USER, temFoto: true, matricula: { periodo: '2026S2' } });
+
+    const foto = await authed('/eu/foto');
+    expect(foto.status).toBe(200);
+    expect(foto.headers.get('content-type')).toBe('image/png');
+    expect(foto.headers.get('content-disposition')).toContain('attachment; filename="foto.png"');
+    expect(new Uint8Array(await foto.arrayBuffer())).toEqual(new Uint8Array(Buffer.from(FOTO_BASE64, 'base64')));
+
+    const avaliacoes = await authed('/avaliacoes-institucionais?objeto=Professor');
+    expect(avaliacoes.status).toBe(200);
+    expect(await avaliacoes.json()).toMatchObject({ avaliacoes: [{ id: 0, objeto: 'Professor' }] });
   });
 });

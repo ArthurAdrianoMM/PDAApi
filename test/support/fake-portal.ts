@@ -1,7 +1,7 @@
 /**
  * An in-memory stand-in for the portal, built from the behavior recorded in
  * ENDPOINTS.md (sections 2 and 3). All values are made up. Like the real
- * portal, it has no `LoginURL` (404).
+ * portal, it has no `LoginURL` (404), and its old form login answers 503.
  */
 import { setTimeout as sleep } from 'node:timers/promises';
 import type { FetchFn } from '../../src/core/http.js';
@@ -9,16 +9,16 @@ import { PortalSession, type Credentials } from '../../src/core/index.js';
 
 export const ORIGIN = 'https://portal.test';
 export const API = '/FrameHTML/RM/API/';
-export const LOGIN_PATH = '/Corpore.Net/Source/EDU-EDUCACIONAL/Public/EduPortalAlunoLogin.aspx';
+export const OLD_LOGIN_FORM_PATH = '/Corpore.Net/Source/EDU-EDUCACIONAL/Public/EduPortalAlunoLogin.aspx';
 export const CONTEXT_COOKIE = 'EduContextoAlunoResponsavelAPI';
 export const USER = 'aluno.teste';
 export const PASSWORD = 's3nha&com=símbolos';
 
 /** Opaque IDs with characters that URL encoding would change. */
 export const CONTEXTS = [
-  { IDCONTEXTOALUNO: 'ctx+A/1==', CODPERLET: '2026S1', IDPERLET: 1017, DTINICIO: '2026-02-02T00:00:00', NOMECURSO: 'Curso Exemplo' },
-  { IDCONTEXTOALUNO: 'ctx+B/2==', CODPERLET: '2026S2', IDPERLET: 1042, DTINICIO: '2026-07-27T00:00:00', NOMECURSO: 'Curso Exemplo' },
-  { IDCONTEXTOALUNO: 'ctx+C/3==', CODPERLET: '2025S2', IDPERLET: 988, DTINICIO: null, NOMECURSO: null },
+  { IDCONTEXTOALUNO: 'ctx+A/1==', CODPERLET: '2026S1', IDPERLET: 1017, DTINICIO: '2026-02-02T00:00:00', NOMECURSO: 'Curso Exemplo', CODCURSO: 'DS' },
+  { IDCONTEXTOALUNO: 'ctx+B/2==', CODPERLET: '2026S2', IDPERLET: 1042, DTINICIO: '2026-07-27T00:00:00', NOMECURSO: 'Curso Exemplo', CODCURSO: 'DS' },
+  { IDCONTEXTOALUNO: 'ctx+C/3==', CODPERLET: '2025S2', IDPERLET: 988, DTINICIO: null, NOMECURSO: null, CODCURSO: null },
 ];
 
 export interface RecordedRequest {
@@ -51,10 +51,13 @@ export function envelope(data: unknown, messages: unknown[] = []): Response {
   return json({ data, messages, length: Array.isArray(data) ? data.length : 1, HttpStatusCode: 200 });
 }
 
-function redirect(location: string, cookies: string[] = []): Response {
-  const headers = new Headers({ location });
-  for (const cookie of cookies) headers.append('set-cookie', cookie);
-  return new Response(null, { status: 302, headers });
+function redirect(location: string): Response {
+  return new Response(null, { status: 302, headers: { location } });
+}
+
+/** A session key with characters that must be URL-encoded in `AutoLoginPortal?key=`. */
+export function loginKey(n: number): string {
+  return `key+${n}/==`;
 }
 
 function cookiesOf(req: RecordedRequest): Map<string, string> {
@@ -76,29 +79,38 @@ export function createFakePortal(options: FakePortalOptions = {}) {
   const expiredRedirect = () => redirect(`${ORIGIN}/FrameHTML/web/app/edu/PortalEducacional/login/?sessaoexpirada=true`);
   const isAuthed = (req: RecordedRequest) => validAuth !== null && cookiesOf(req).get('.ASPXAUTH') === validAuth;
 
+  function login(req: RecordedRequest): Response {
+    if (req.headers.get('content-type') !== 'application/json') return new Response(null, { status: 415 });
+    const body = JSON.parse(req.body ?? '{}') as Record<string, unknown>;
+    if (body.user !== USER || body.password !== PASSWORD || body.alias !== 'CorporeRM') {
+      // The real answer to wrong credentials is not recorded (ENDPOINTS.md 7.1); this one is made up.
+      return envelope(null, [{ type: 'error', detail: 'Usuário ou senha inválidos.' }]);
+    }
+    logins += 1;
+    issued += 1;
+    return json(
+      { data: { value: loginKey(issued) }, length: 1, HttpStatusCode: 200 },
+      { headers: { 'set-cookie': `ASP.NET_SessionId=sess-${issued}; path=/; HttpOnly` } },
+    );
+  }
+
   function route(req: RecordedRequest): Response {
     const { pathname, searchParams } = req.url;
 
-    if (req.method === 'POST' && pathname === LOGIN_PATH) {
-      const form = new URLSearchParams(req.body ?? '');
-      if (form.get('User') !== USER || form.get('Pass') !== PASSWORD || form.get('Alias') !== 'CorporeRM') {
-        return new Response('<html>login</html>', { status: 200, headers: { 'content-type': 'text/html' } });
-      }
-      logins += 1;
-      issued += 1;
-      return redirect(`${ORIGIN}/framehtml/web/app/edu/PortalEducacional/#/main?key=KEY-${issued}`, [
-        `ASP.NET_SessionId=sess-${issued}; path=/; HttpOnly`,
-      ]);
+    if (pathname === OLD_LOGIN_FORM_PATH) {
+      return new Response('<HTML><HEAD><TITLE>Service Unavailable</TITLE></HEAD></HTML>', { status: 503 });
     }
 
     if (!pathname.startsWith(API)) return new Response('not found', { status: 404 });
     const path = pathname.slice(API.length);
 
+    if (req.method === 'POST' && path === 'TOTVSEducacional/Login') return login(req);
+
     switch (path) {
       case 'TOTVSEducacional/ListarAlias':
         return json(options.aliases ?? ['CorporeRM']);
       case 'user/AutoLoginPortal': {
-        if (searchParams.get('key') !== `KEY-${issued}`) return new Response(null, { status: 401 });
+        if (searchParams.get('key') !== loginKey(issued)) return new Response(null, { status: 401 });
         validAuth = `auth-${issued}`;
         const headers = new Headers({ 'content-type': 'application/json' });
         headers.append('set-cookie', `.ASPXAUTH=${validAuth}; path=/; HttpOnly`);
@@ -154,6 +166,15 @@ export function createFakePortal(options: FakePortalOptions = {}) {
  * missing context cookie → permission warning; any other value than the raw ID → 403.
  */
 export function academicRoute(expectedContextId: string, data: unknown): DataRoute {
+  return contextRoute({ [expectedContextId]: data });
+}
+
+/**
+ * Like `academicRoute`, for several enrollments: answers with the data of the
+ * enrollment whose raw context ID is in the cookie, as the portal does for
+ * each period (ENDPOINTS.md 2.4).
+ */
+export function contextRoute(dataByContextId: Record<string, unknown>): DataRoute {
   return (req) => {
     const value = cookiesOf(req).get(CONTEXT_COOKIE);
     if (value === undefined) {
@@ -161,8 +182,8 @@ export function academicRoute(expectedContextId: string, data: unknown): DataRou
         { type: 'warning', detail: 'Usuário sem permissão para acessar os dados acadêmicos do aluno' },
       ]);
     }
-    if (value !== expectedContextId) return new Response(null, { status: 403 });
-    return envelope(data);
+    if (!Object.hasOwn(dataByContextId, value)) return new Response(null, { status: 403 });
+    return envelope(dataByContextId[value]);
   };
 }
 
