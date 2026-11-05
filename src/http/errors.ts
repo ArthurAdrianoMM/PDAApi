@@ -1,19 +1,23 @@
 import { z } from 'zod';
-import { PORTAL_ERROR_CODES, isPortalError, type PortalErrorCode } from '../core/index.js';
+import { PORTAL_ERROR_CODES } from '../core/index.js';
+import { COMMON_ERROR_CODES, toErrorBody, type CommonErrorCode } from '../api/errors.js';
 
-/** Errors raised by the local server itself, not by the portal. */
+/** Errors only the local HTTP server raises. */
 export const LOCAL_ERROR_CODES = {
-  parametro_invalido: 'Um parâmetro está faltando, sobrando ou com o tipo errado.',
   token_invalido: 'O token local está ausente ou errado. Entre de novo pela documentação (/docs/) para receber um novo.',
   host_invalido: 'O cabeçalho Host não é o endereço local deste servidor.',
   origem_invalida: 'O login só é aceito a partir da documentação servida por este servidor.',
   nao_encontrado: 'Esta rota não existe.',
-  erro_interno: 'Erro no servidor local. Veja o terminal onde ele está rodando.',
 } as const;
 
-export type ApiErrorCode = PortalErrorCode | keyof typeof LOCAL_ERROR_CODES;
+export type ApiErrorCode = CommonErrorCode | keyof typeof LOCAL_ERROR_CODES;
 
-export const ERROR_DESCRIPTIONS: Record<ApiErrorCode, string> = { ...PORTAL_ERROR_CODES, ...LOCAL_ERROR_CODES };
+export const ERROR_DESCRIPTIONS: Record<ApiErrorCode, string> = {
+  ...PORTAL_ERROR_CODES,
+  parametro_invalido: COMMON_ERROR_CODES.parametro_invalido,
+  ...LOCAL_ERROR_CODES,
+  erro_interno: COMMON_ERROR_CODES.erro_interno,
+};
 
 export const ERROR_STATUS = {
   parametro_invalido: 400,
@@ -57,26 +61,8 @@ export function apiError(code: ApiErrorCode, mensagem: string = ERROR_DESCRIPTIO
   return { erro: code, mensagem };
 }
 
-/**
- * Maps any thrown value to a status and body. Portal errors keep their code and
- * message; input errors list the fields; anything else is an internal error,
- * whose details stay in the terminal.
- */
+/** Maps any thrown value to a status and body (see `toErrorBody`). */
 export function toApiError(error: unknown): { status: ErrorStatus; body: ApiError; internal: boolean } {
-  if (isPortalError(error)) {
-    const body = apiError(error.code, error.message);
-    if (error.portalMessages.length > 0) {
-      body.mensagensDoPortal = error.portalMessages.map((m) => ({ tipo: m.type ?? null, detalhe: m.detail ?? null }));
-    }
-    return { status: ERROR_STATUS[error.code], body, internal: false };
-  }
-  if (error instanceof z.ZodError) {
-    const body = apiError('parametro_invalido');
-    body.detalhes = error.issues.map((issue) => ({
-      campo: issue.path.join('.') || (issue.code === 'unrecognized_keys' ? issue.keys.join(', ') : '(entrada)'),
-      mensagem: issue.message,
-    }));
-    return { status: ERROR_STATUS.parametro_invalido, body, internal: false };
-  }
-  return { status: ERROR_STATUS.erro_interno, body: apiError('erro_interno'), internal: true };
+  const { body, internal } = toErrorBody(error);
+  return { status: ERROR_STATUS[body.erro], body, internal };
 }
