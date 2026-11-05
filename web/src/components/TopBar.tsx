@@ -1,6 +1,108 @@
-import { useEffect, useRef, type KeyboardEvent } from 'react';
+import { useEffect, useId, useRef, useState, type FocusEvent, type KeyboardEvent } from 'react';
 import { loginHref, type Connection, type Route } from '../state';
-import { DownloadIcon, LogOutIcon, SearchIcon, UserIcon } from './Icons';
+import { ChevronDownIcon, DownloadIcon, LogOutIcon, SearchIcon, UserIcon } from './Icons';
+
+function words(nome: string): string[] {
+  return nome.trim().split(/\s+/).filter(Boolean);
+}
+
+/** First and last initials: "Mariana Costa Ribeiro" → "MR". */
+function initials(nome: string): string {
+  const parts = words(nome);
+  const first = parts[0]?.[0] ?? '';
+  const last = parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? '') : '';
+  return (first + last).toUpperCase();
+}
+
+/** The first name, title-cased when the portal sends it in capitals. */
+function firstName(nome: string): string {
+  const first = words(nome)[0] ?? nome;
+  return first === first.toUpperCase() ? first.charAt(0) + first.slice(1).toLowerCase() : first;
+}
+
+function Avatar({ nome, large = false }: { nome: string | null; large?: boolean }) {
+  const letters = nome ? initials(nome) : '';
+  return (
+    <span className={`avatar${large ? ' avatar--lg' : ''}${letters ? '' : ' avatar--blank'}`} aria-hidden="true">
+      {letters || <UserIcon size={large ? 17 : 15} />}
+      {!large && <span className="avatar__dot" />}
+    </span>
+  );
+}
+
+/** The logged-in account: a trigger that opens a small panel with the way out. */
+function AccountMenu({ nome, onLogout }: { nome: string | null; onLogout: () => void }) {
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const logout = useRef<HTMLButtonElement>(null);
+  const panelId = useId();
+
+  useEffect(() => {
+    if (!open) return;
+    logout.current?.focus();
+    const onPointerDown = (event: PointerEvent) => {
+      if (!root.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setOpen(false);
+      trigger.current?.focus();
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  // Tabbing out of the account closes it.
+  function onBlur(event: FocusEvent<HTMLDivElement>) {
+    if (!root.current?.contains(event.relatedTarget as Node | null)) setOpen(false);
+  }
+
+  return (
+    <div className="account" ref={root} onBlur={onBlur}>
+      <button
+        ref={trigger}
+        type="button"
+        className="account__trigger"
+        aria-expanded={open}
+        aria-controls={panelId}
+        aria-label={nome ? `Conta de ${nome}` : 'Conta'}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <Avatar nome={nome} />
+        <span className="account__first">{nome ? firstName(nome) : 'Conectado'}</span>
+        <ChevronDownIcon size={14} className="account__chevron" />
+      </button>
+
+      <div id={panelId} className={`account__menu${open ? ' account__menu--open' : ''}`}>
+        <div className="account__who">
+          <Avatar nome={nome} large />
+          <div className="account__who-text">
+            <span className="account__full">{nome ?? 'Conectado'}</span>
+            <span className="account__status">Sessão ativa</span>
+          </div>
+        </div>
+        <div className="account__divider" aria-hidden="true" />
+        <button
+          ref={logout}
+          type="button"
+          className="account__item"
+          onClick={() => {
+            setOpen(false);
+            onLogout();
+          }}
+        >
+          <LogOutIcon />
+          Sair
+        </button>
+      </div>
+    </div>
+  );
+}
 
 /** Top right: who is logged in, or the way to the login screen. */
 function Account({ connection, route }: { connection: Connection; route: Route }) {
@@ -13,18 +115,7 @@ function Account({ connection, route }: { connection: Connection; route: Route }
       </span>
     );
   }
-  if (state === 'conectado') {
-    return (
-      <div className="account">
-        <span className="pill pill--ok account__name" role="status">
-          {connection.nome ?? 'Conectado'}
-        </span>
-        <button type="button" className="icon-btn" onClick={connection.logout} aria-label="Sair" title="Sair">
-          <LogOutIcon />
-        </button>
-      </div>
-    );
-  }
+  if (state === 'conectado') return <AccountMenu nome={connection.nome} onLogout={connection.logout} />;
   const problem = state === 'token_invalido' || state === 'sessao_expirada';
   return (
     <a

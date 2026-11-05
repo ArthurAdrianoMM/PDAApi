@@ -358,6 +358,8 @@ kbd {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+  /* When the bar wraps, keep the account at the right edge so its menu has room. */
+  margin-left: auto;
 }
 .icon-btn {
   display: inline-flex;
@@ -1110,15 +1112,181 @@ kbd {
 /* ── Account (top bar) ───────────────────────────────────── */
 
 .account {
+  position: relative;
+}
+.account__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  padding: 0 12px 0 6px;
+  background: transparent;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition:
+    background-color 160ms var(--ease-out),
+    border-color 160ms var(--ease-out);
+}
+.account__trigger:hover,
+.account__trigger[aria-expanded='true'] {
+  border-color: rgb(var(--neutral-rgb) / 0.95);
+}
+.account__trigger:hover {
+  background: var(--hover-bg);
+}
+.account__trigger[aria-expanded='true'] {
+  background: rgb(var(--neutral-rgb) / 0.3);
+}
+.account__first {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.account__chevron {
+  color: var(--text-5);
+  transition: transform 220ms var(--ease-out);
+}
+.account__trigger[aria-expanded='true'] .account__chevron {
+  transform: rotate(180deg);
+}
+
+.avatar {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: rgb(var(--gold-rgb) / 0.12);
+  box-shadow: inset 0 0 0 1px rgb(var(--gold-rgb) / 0.28);
+  color: var(--gold);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+.avatar--lg {
+  width: 36px;
+  height: 36px;
+  font-size: 13px;
+}
+.avatar--blank {
+  background: rgb(var(--neutral-rgb) / 0.4);
+  box-shadow: none;
+  color: var(--text-3);
+}
+.avatar__dot {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--ok);
+  box-shadow: 0 0 0 2px var(--bg-panel);
+}
+
+.account__menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  width: min(264px, calc(100vw - 32px));
+  box-sizing: border-box;
+  padding: 6px;
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow:
+    0 16px 40px rgb(0 0 0 / 0.5),
+    0 2px 6px rgb(0 0 0 / 0.3);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-6px) scale(0.97);
+  transform-origin: top right;
+  transition:
+    opacity 120ms ease-in,
+    transform 120ms ease-in,
+    visibility 0s linear 120ms;
+}
+.account__menu--open {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition:
+    opacity 160ms var(--ease-out),
+    transform 200ms var(--ease-out),
+    visibility 0s;
+}
+.account__who {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+  padding: 10px 10px 12px;
 }
-.account__name {
-  max-width: 180px;
+.account__who-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.account__full {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-1);
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.account__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-5);
+}
+.account__status::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--ok);
+}
+.account__divider {
+  height: 1px;
+  margin: 0 4px 6px;
+  background: var(--line-soft);
+}
+.account__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 44px;
+  padding: 0 10px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-3);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 140ms var(--ease-out),
+    color 140ms var(--ease-out);
+}
+.account__item:hover {
+  background: rgb(var(--err-rgb) / 0.1);
+  color: var(--err);
+}
+
 .account__login {
   position: relative;
 }
@@ -1408,7 +1576,8 @@ kbd {
 
 @media (max-width: 720px) {
   .topbar {
-    position: static;
+    /* Not sticky here, but still positioned so the account menu stacks above the page. */
+    position: relative;
     padding: 12px 16px;
   }
   .content {
