@@ -1,4 +1,4 @@
-# portal-aluno
+# Portal 2
 
 A read-only API for your own data in the SENAI Portal do Aluno. It runs on your computer and talks to the portal with your account. No other server is involved, apart from npm: the one place it's installed and updated from.
 
@@ -9,9 +9,9 @@ Class project, not official, not affiliated with SENAI or FIEB. Scope and limits
 - [x] Core client: login, context cookie, re-login on expiry, rate limit (`src/core`)
 - [x] Operations: `/eu`, `/eu/foto`, `/periodos`, `/disciplinas`, `/notas`, `/faltas`, `/faltas/aulas`, `/horario`, `/aulas`, `/disciplinas/{idTurmaDisc}/aulas`, `/disciplinas/{idTurmaDisc}/aulas/{idPlanoAula}`, `/disciplinas/{idTurmaDisc}/etapas`, `/calendario`, `/grade-curricular`, `/materiais`, `/disciplinas/{idTurmaDisc}/materiais`, `/materiais/{idMaterial}/arquivo`, `/avaliacoes-institucionais` (`src/operations`)
 - [x] OpenAPI 3.1 document generated from the operations ([openapi.json](openapi.json))
-- [x] Local server (`portal-aluno serve`)
+- [x] Local server (`portal-2 serve`)
 - [x] Docs page with "testar", built from `openapi.json` (`web/`)
-- [x] MCP server for AI agents, over stdio (`portal-aluno mcp`). Phases: [docs/MCP.md](docs/MCP.md)
+- [x] MCP server for AI agents, over stdio (`portal-2 mcp`). Phases: [docs/MCP.md](docs/MCP.md)
 
 ## Requirements
 
@@ -20,15 +20,15 @@ Node.js 22.19 or newer.
 ## Use
 
 ```sh
-npx portal-aluno@latest serve
-npx portal-aluno@latest serve --port 5000 --period 2026S1
+npx portal-2@latest serve
+npx portal-2@latest serve --port 5000 --period 2026S1
 ```
 
-`npx` downloads the package the first time and always runs the newest release. To install the `portal-aluno` command instead:
+`npx` downloads the package the first time and always runs the newest release. To install the `portal-2` command instead:
 
 ```sh
-npm install -g portal-aluno       # run the same command with @latest to update
-portal-aluno serve
+npm install -g portal-2       # run the same command with @latest to update
+portal-2 serve
 ```
 
 When a newer release is on npm, `serve` says so at startup and prints the command that updates it. `NO_UPDATE_NOTIFIER=1` turns that check off.
@@ -54,18 +54,18 @@ Token:        …
 
 ## Use with AI agents (MCP)
 
-`portal-aluno mcp` is an [MCP](https://modelcontextprotocol.io) server: every operation of the API becomes a tool that Claude, Codex, Cursor, VS Code and other agents can call. The client starts it on your computer; it talks to the portal with your account, like `serve`.
+`portal-2 mcp` is an [MCP](https://modelcontextprotocol.io) server: every operation of the API becomes a tool that Claude, Codex, Cursor, VS Code and other agents can call. The client starts it on your computer; it talks to the portal with your account, like `serve`.
 
 It reads your portal user and password from `PORTAL_ALUNO_USER` and `PORTAL_ALUNO_PASSWORD`, which the client passes to it. It starts without contacting the portal and logs in on the first tool call, so a missing variable or a wrong password shows up in the chat as an error the agent can explain. After the portal refuses the password once, it stops trying until restarted, so it can't lock your account.
 
-The setups below run `npx -y portal-aluno@latest mcp`, so every time the client starts the server it gets the newest release. Without `@latest`, npx may keep a cached old version.
+The setups below run `npx -y portal-2@latest mcp`, so every time the client starts the server it gets the newest release. Without `@latest`, npx may keep a cached old version.
 
-**Claude Desktop.** Download `portal-aluno-<version>.mcpb` from the [latest release](https://github.com/ArthurAdrianoMM/PDAApi/releases/latest) and open it. Claude Desktop asks for the user and password and keeps the password in its secure storage. To update, open the bundle from a newer release.
+**Claude Desktop.** Download `portal-2-<version>.mcpb` from the [latest release](https://github.com/ArthurAdrianoMM/portal-2/releases/latest) and open it. Claude Desktop asks for the user and password and keeps the password in its secure storage. To update, open the bundle from a newer release.
 
 **Claude Code.**
 
 ```sh
-claude mcp add portal-aluno -e PORTAL_ALUNO_USER=<usuário> -e PORTAL_ALUNO_PASSWORD=<senha> -- npx -y portal-aluno@latest mcp
+claude mcp add portal-2 -e PORTAL_ALUNO_USER=<usuário> -e PORTAL_ALUNO_PASSWORD=<senha> -- npx -y portal-2@latest mcp
 ```
 
 **VS Code** (`.vscode/mcp.json`). VS Code asks for the password and keeps it in its secure storage:
@@ -77,10 +77,10 @@ claude mcp add portal-aluno -e PORTAL_ALUNO_USER=<usuário> -e PORTAL_ALUNO_PASS
     { "type": "promptString", "id": "portal-senha", "description": "Senha do Portal do Aluno", "password": true }
   ],
   "servers": {
-    "portal-aluno": {
+    "portal-2": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "portal-aluno@latest", "mcp"],
+      "args": ["-y", "portal-2@latest", "mcp"],
       "env": { "PORTAL_ALUNO_USER": "${input:portal-usuario}", "PORTAL_ALUNO_PASSWORD": "${input:portal-senha}" }
     }
   }
@@ -92,9 +92,9 @@ claude mcp add portal-aluno -e PORTAL_ALUNO_USER=<usuário> -e PORTAL_ALUNO_PASS
 ```json
 {
   "mcpServers": {
-    "portal-aluno": {
+    "portal-2": {
       "command": "npx",
-      "args": ["-y", "portal-aluno@latest", "mcp"],
+      "args": ["-y", "portal-2@latest", "mcp"],
       "env": { "PORTAL_ALUNO_USER": "<usuário>", "PORTAL_ALUNO_PASSWORD": "<senha>" }
     }
   }
@@ -104,9 +104,9 @@ claude mcp add portal-aluno -e PORTAL_ALUNO_USER=<usuário> -e PORTAL_ALUNO_PASS
 **Codex** (`~/.codex/config.toml`), also used by Codex inside the ChatGPT desktop app:
 
 ```toml
-[mcp_servers.portal-aluno]
+[mcp_servers.portal-2]
 command = "npx"
-args = ["-y", "portal-aluno@latest", "mcp"]
+args = ["-y", "portal-2@latest", "mcp"]
 env = { PORTAL_ALUNO_USER = "<usuário>", PORTAL_ALUNO_PASSWORD = "<senha>" }
 ```
 
@@ -128,19 +128,19 @@ Every tool only reads. The tools say so to the client (`readOnlyHint`), so most 
 - The page keeps the token in `sessionStorage` (this tab only), or in `localStorage` when "Lembrar de mim" is ticked. A token from the startup link reaches the page in the `#hash`, which browsers never send to servers, and is removed from the address bar.
 - Files from the portal (materials, the profile photo) are sent as `attachment` with `Content-Security-Policy: default-src 'none'; sandbox`, so a file can never run as a page of this server, where the token lives. The docs page allows `blob:` images only to preview a photo it downloaded itself.
 - The request log has method, path, status and time. No query strings, no bodies.
-- At startup it asks the npm registry for the latest version of `portal-aluno`, to tell you about updates. The request carries nothing but the package name, and `NO_UPDATE_NOTIFIER=1` turns it off. `mcp` never makes it.
+- At startup it asks the npm registry for the latest version of `portal-2`, to tell you about updates. The request carries nothing but the package name, and `NO_UPDATE_NOTIFIER=1` turns it off. `mcp` never makes it.
 
 ## Development
 
 ```sh
-git clone https://github.com/ArthurAdrianoMM/PDAApi.git && cd PDAApi
+git clone https://github.com/ArthurAdrianoMM/portal-2.git && cd portal-2
 npm install
 npm run serve       # builds the docs page, then serves from source; npm run serve -- --port 5000 for options
 npm test            # unit tests against an in-memory fake portal, no network
 npm run typecheck
 npm run openapi     # regenerate openapi.json after changing an operation (a test fails if you forget)
 npm run build       # docs page to dist/web, server to dist/
-npm run pack:mcpb   # the Claude Desktop bundle, portal-aluno-<version>.mcpb
+npm run pack:mcpb   # the Claude Desktop bundle, portal-2-<version>.mcpb
 ```
 
 Work on the docs page without logging in to the real portal:
@@ -156,7 +156,7 @@ Try the MCP tools without the real portal. The server logs in to the fake portal
 ```sh
 npm run -s dev:mcp:fake                     # MCP server on stdio, made-up data; -s keeps npm's banner off stdout
 npm run -s dev:mcp:fake -- --senha-errada   # the same, with a refused login
-claude mcp add portal-aluno-fake -- npm --prefix "$PWD" run -s dev:mcp:fake
+claude mcp add portal-2-fake -- npm --prefix "$PWD" run -s dev:mcp:fake
 ```
 
 CI runs the typecheck, the tests and the build on every pull request. Releases are a version tag; see [docs/RELEASING.md](docs/RELEASING.md).
@@ -208,7 +208,7 @@ src/
   openapi/       builds the OpenAPI document from the operations
   http/          the local server (Hono): routes, login and token, errors, docs page
   mcp/           the MCP server: operations as tools, results, the stdio session (docs/MCP.md)
-  cli/           `portal-aluno` command (serve, mcp) and terminal prompts
+  cli/           `portal-2` command (serve, mcp) and terminal prompts
   env.ts         the credentials in the environment
 web/             the docs page (React + Vite). Reads /openapi.json; knows nothing else about the API
   src/lib/       pure logic: spec model, Markdown subset, fields, samples, search (tested in test/web.test.ts)

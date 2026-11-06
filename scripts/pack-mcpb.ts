@@ -4,7 +4,7 @@
  * Claude Desktop ships Node.js, asks for the user and password in a form, and
  * keeps the password in its secure storage instead of a config file.
  *
- *   npm run pack:mcpb        # builds first; writes portal-aluno-<version>.mcpb
+ *   npm run pack:mcpb        # builds first; writes <name>-<version>.mcpb
  *
  * The bundler runs through npx, pinned, so its dependencies stay out of this project.
  */
@@ -17,12 +17,12 @@ import { operations } from '../src/operations/index.js';
 
 const MCPB = '@anthropic-ai/mcpb@2.1.2';
 const ROOT = resolve(import.meta.dirname, '..');
-const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as { version: string; engines: { node: string } };
+const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as { name: string; version: string; engines: { node: string } };
 
 const manifest = {
   manifest_version: '0.4',
-  name: 'portal-aluno',
-  display_name: 'Portal do Aluno (SENAI)',
+  name: pkg.name,
+  display_name: 'Portal 2',
   version: pkg.version,
   description: 'Seus dados do Portal do Aluno do SENAI, só para leitura: notas, faltas, horário, aulas, calendário e materiais.',
   long_description:
@@ -30,7 +30,7 @@ const manifest = {
     'A senha fica guardada pelo Claude Desktop e na memória do servidor, e só é enviada ao portal. ' +
     'Projeto de aula, não oficial. Sem vínculo com o SENAI ou a FIEB.',
   author: { name: 'ArthurAdrianoMM', url: 'https://github.com/ArthurAdrianoMM' },
-  repository: { type: 'git', url: 'https://github.com/ArthurAdrianoMM/PDAApi' },
+  repository: { type: 'git', url: 'https://github.com/ArthurAdrianoMM/portal-2' },
   server: {
     type: 'node',
     entry_point: 'dist/cli/main.js',
@@ -62,8 +62,8 @@ const manifest = {
 
 const npx = (...args: string[]) => execFileSync('npx', ['-y', MCPB, ...args], { stdio: 'inherit' });
 
-const out = join(ROOT, `portal-aluno-${pkg.version}.mcpb`);
-const stage = mkdtempSync(join(tmpdir(), 'portal-aluno-mcpb-'));
+const out = join(ROOT, `${pkg.name}-${pkg.version}.mcpb`);
+const stage = mkdtempSync(join(tmpdir(), `${pkg.name}-mcpb-`));
 try {
   // The server only: MCP clients never open the docs page.
   const web = join(ROOT, 'dist', 'web');

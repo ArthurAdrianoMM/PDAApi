@@ -36,7 +36,7 @@ export function fileResult(file: FileResult, uri: string): CallToolResult {
     throw new LocalError(
       'arquivo_grande',
       `O arquivo tem ${megabytes(bytes)} MB, e as ferramentas entregam até 5 MB. ` +
-        'Baixe-o pelo portal ou pela API local (portal-aluno serve).',
+        'Baixe-o pelo portal ou pela API local (portal-2 serve).',
     );
   }
   const mimeType = file.tipo.split(';')[0]!.trim();
@@ -78,7 +78,7 @@ export function errorResult(error: unknown, log: (line: string) => void): CallTo
   return { isError: true, content: [{ type: 'text', text: errorText(body) }] };
 }
 
-/** A URI for a file of this API, such as `portal-aluno:///materiais/3150/arquivo`. */
+/** A URI for a file of this API, such as `portal-2:///materiais/3150/arquivo`. */
 export function fileUri(path: string, args: Record<string, unknown>): string {
-  return `portal-aluno://${path.replace(/\{(\w+)\}/g, (_, name: string) => encodeURIComponent(String(args[name] ?? '')))}`;
+  return `portal-2://${path.replace(/\{(\w+)\}/g, (_, name: string) => encodeURIComponent(String(args[name] ?? '')))}`;
 }

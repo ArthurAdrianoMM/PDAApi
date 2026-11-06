@@ -1,3 +1,5 @@
+import { PACKAGE_NAME, VERSION } from '../version.js';
+
 export interface PortalConfig {
   /** Portal origin. Every request, the login form included, goes to this origin. */
   baseUrl: string;
@@ -22,7 +24,7 @@ export const DEFAULT_CONFIG: PortalConfig = {
   baseUrl: 'https://senaiweb6.fieb.org.br',
   minRequestIntervalMs: 250,
   timeoutMs: 30_000,
-  userAgent: 'portal-aluno/0.1.0',
+  userAgent: `${PACKAGE_NAME}/${VERSION}`,
 };
 
 /** REST base for every portal API path (ENDPOINTS.md 1). */

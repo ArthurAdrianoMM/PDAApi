@@ -7,7 +7,7 @@ import { parseRoute, type Route } from './lib/route';
 
 // ── Token ───────────────────────────────────────────────────────────
 
-const TOKEN_KEY = 'portal-aluno-token';
+const TOKEN_KEY = 'portal-2-token';
 
 /** Storage can be blocked (private mode, settings); the page then works without remembering. */
 function storageGet(storage: () => Storage, key: string): string | null {
@@ -208,7 +208,7 @@ export function useRoute(): Route {
 
 // ── Sidebar groups ──────────────────────────────────────────────────
 
-const CLOSED_GROUPS_KEY = 'portal-aluno-grupos-fechados';
+const CLOSED_GROUPS_KEY = 'portal-2-grupos-fechados';
 
 function loadClosedGroups(): Set<string> {
   try {

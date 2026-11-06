@@ -10,7 +10,7 @@ const SESSION_TEXT: Record<ConnectionState, string> = {
   sem_token: 'Você ainda não entrou. Dá para ler tudo; para testar com seus dados, entre com sua conta do portal.',
   token_invalido: 'Seu acesso não vale mais: o servidor reiniciou ou você entrou em outra aba. Entre de novo.',
   sessao_expirada: 'O portal encerrou a sessão e o servidor não conseguiu entrar de novo sozinho. Entre outra vez.',
-  somente_leitura: 'Esta cópia não fala com o portal. Para testar com seus dados, rode `portal-aluno serve` no seu computador.',
+  somente_leitura: 'Esta cópia não fala com o portal. Para testar com seus dados, rode `portal-2 serve` no seu computador.',
 };
 
 function OperationLink({ operation, current }: { operation: DocOperation; current: boolean }) {

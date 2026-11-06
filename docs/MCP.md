@@ -1,6 +1,6 @@
 # MCP server: design
 
-How `portal-aluno` exposes its operations to AI agents (Claude, ChatGPT through Codex, Cursor, VS Code, Gemini CLI and others) through the [Model Context Protocol](https://modelcontextprotocol.io), and why it is built this way.
+How `portal-2` exposes its operations to AI agents (Claude, ChatGPT through Codex, Cursor, VS Code, Gemini CLI and others) through the [Model Context Protocol](https://modelcontextprotocol.io), and why it is built this way.
 
 Scope and limits are the same as the rest of the project: [INTENT.md](../INTENT.md). The MCP server is one more way to read the same data. It does not add operations, and it does not write anything.
 
@@ -108,7 +108,7 @@ src/
     instructions.ts   server instructions for the model
     env-session.ts    the stdio resolver
   env.ts              the credentials in the environment, shared by serve and mcp
-  cli/mcp.ts          `portal-aluno mcp [--period 2026S2]`
+  cli/mcp.ts          `portal-2 mcp [--period 2026S2]`
 scripts/
   demo-portal.ts      the fake portal with made-up data, shared by dev:fake and dev:mcp:fake
   fake-mcp.ts         the MCP server against it (`npm run -s dev:mcp:fake`)
@@ -120,12 +120,12 @@ test/mcp.test.ts
 
 ### Phase 1: local stdio server (done)
 
-`portal-aluno mcp`, run by the MCP client as a child process. This covers Claude Desktop, Claude Code, Cursor, VS Code, Gemini CLI and Codex (also inside the ChatGPT desktop app).
+`portal-2 mcp`, run by the MCP client as a child process. This covers Claude Desktop, Claude Code, Cursor, VS Code, Gemini CLI and Codex (also inside the ChatGPT desktop app).
 
 1. Shared error bodies (`src/api/errors.ts`) and JSON Schema (`src/api/json-schema.ts`), used by both transports.
 2. `createMcpServer`, `tools.ts`, `results.ts`, `instructions.ts`, with tests.
 3. The `mcp` command, `envSession`, and `npm run -s dev:mcp:fake`.
-4. The npm package (`npx -y portal-aluno@latest mcp`), and setup per client in the README. Releases are published from a version tag by CI: [RELEASING.md](RELEASING.md).
+4. The npm package (`npx -y portal-2@latest mcp`), and setup per client in the README. Releases are published from a version tag by CI: [RELEASING.md](RELEASING.md).
 5. A `.mcpb` bundle for Claude Desktop (`npm run pack:mcpb`, manifest version 0.4, attached to every GitHub Release), where the password is typed into a form and kept by Claude Desktop in secure storage. The manifest is generated from `package.json` and the operations, so it can't fall behind. Claude Desktop ships Node.js, so users install nothing else.
 
 ### Phase 2: `/mcp` on the local server

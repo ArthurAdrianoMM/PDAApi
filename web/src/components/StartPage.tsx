@@ -3,7 +3,7 @@ import { loginHref, routeHref } from '../state';
 import { CopyButton } from './CopyButton';
 import { ArrowIcon } from './Icons';
 
-const SERVE_COMMAND = 'portal-aluno serve';
+const SERVE_COMMAND = 'portal-2 serve';
 
 const PROMISES = [
   { title: 'Só leitura', text: 'Nenhuma rota altera nada no portal.' },

@@ -22,7 +22,7 @@ export interface OpenApiOptions {
 
 const API_DESCRIPTION = [
   'API somente leitura para os seus dados do Portal do Aluno do SENAI. Ela roda no seu computador ' +
-    '(`portal-aluno serve`) e fala com o portal usando a sua conta. Nenhum outro servidor participa.',
+    '(`portal-2 serve`) e fala com o portal usando a sua conta. Nenhum outro servidor participa.',
   '**Autenticação:** entre com o usuário e a senha do portal na documentação (`/docs/`), ou envie ' +
     '`POST /sessao` com `{"usuario", "senha"}` em JSON. A resposta traz um token; envie-o como ' +
     '`Authorization: Bearer <token>`. Um novo login invalida o token anterior.',
@@ -130,12 +130,12 @@ export function generateOpenApi(options: OpenApiOptions = {}): OpenApiDocument {
   return {
     openapi: '3.1.0',
     info: {
-      title: 'Portal do Aluno API',
+      title: 'Portal 2',
       version: VERSION,
       description: API_DESCRIPTION,
       'x-portal': { url: options.portalUrl ?? DEFAULT_CONFIG.baseUrl },
     },
-    servers: [{ url: options.serverUrl ?? DEFAULT_SERVER_URL, description: 'Servidor local (`portal-aluno serve`)' }],
+    servers: [{ url: options.serverUrl ?? DEFAULT_SERVER_URL, description: 'Servidor local (`portal-2 serve`)' }],
     security: [{ [SECURITY_SCHEME]: [] }],
     tags: TAGS.filter((tag) => usedTags.has(tag.name)).map((tag) => ({ name: tag.name, description: tag.description })),
     paths,

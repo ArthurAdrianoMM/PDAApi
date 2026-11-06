@@ -4,7 +4,7 @@
  * delays startup, and stays quiet when offline or on any error.
  *
  * `mcp` doesn't use it: its stdout carries the protocol, and clients that start
- * it with `npx -y portal-aluno@latest` already get the newest release.
+ * it with `npx -y portal-2@latest` already get the newest release.
  *
  * Off when NO_UPDATE_NOTIFIER (the variable npm tools share) or CI is set.
  */

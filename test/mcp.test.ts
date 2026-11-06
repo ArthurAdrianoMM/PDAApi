@@ -147,7 +147,7 @@ describe('calls', () => {
     expect(JSON.parse(textOf(result))).toMatchObject({ tipo: 'application/pdf' });
     expect(result.content).toContainEqual({
       type: 'resource',
-      resource: { uri: 'portal-aluno:///materiais/3150/arquivo', mimeType: 'application/pdf', blob: expect.any(String) },
+      resource: { uri: 'portal-2:///materiais/3150/arquivo', mimeType: 'application/pdf', blob: expect.any(String) },
     });
   });
 });
@@ -160,15 +160,15 @@ describe('files', () => {
   });
 
   it('sends text files as text', () => {
-    const result = fileResult(file('text/csv; charset=utf-8', 'a;b\n1;2'), 'portal-aluno:///x');
-    expect(result.content[1]).toEqual({ type: 'resource', resource: { uri: 'portal-aluno:///x', mimeType: 'text/csv', text: 'a;b\n1;2' } });
+    const result = fileResult(file('text/csv; charset=utf-8', 'a;b\n1;2'), 'portal-2:///x');
+    expect(result.content[1]).toEqual({ type: 'resource', resource: { uri: 'portal-2:///x', mimeType: 'text/csv', text: 'a;b\n1;2' } });
   });
 
   it('refuses files over the limit, saying how big they are', () => {
-    const tooBig = () => fileResult(file('application/pdf', MAX_FILE_BYTES + 1), 'portal-aluno:///x');
+    const tooBig = () => fileResult(file('application/pdf', MAX_FILE_BYTES + 1), 'portal-2:///x');
     expect(tooBig).toThrow(LocalError);
     expect(tooBig).toThrow('5,0 MB');
-    expect(fileResult(file('application/pdf', MAX_FILE_BYTES), 'portal-aluno:///x').isError).toBeUndefined();
+    expect(fileResult(file('application/pdf', MAX_FILE_BYTES), 'portal-2:///x').isError).toBeUndefined();
   });
 });
 

@@ -105,7 +105,7 @@ describe('code samples', () => {
 
   it('reads the token from an environment variable, never inlines it', () => {
     for (const language of ['curl', 'javascript', 'python'] as const) {
-      expect(buildSample(language, 'http://x/notas')).toContain('PORTAL_ALUNO_TOKEN');
+      expect(buildSample(language, 'http://x/notas')).toContain('PORTAL2_TOKEN');
     }
   });
 });

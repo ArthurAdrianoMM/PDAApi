@@ -9,7 +9,7 @@ export const SAMPLE_LANGUAGES: { id: SampleLanguage; label: string }[] = [
 ];
 
 /** The environment variable the samples read the token from. */
-export const TOKEN_VARIABLE = 'PORTAL_ALUNO_TOKEN';
+export const TOKEN_VARIABLE = 'PORTAL2_TOKEN';
 
 /**
  * The request URL for the given parameter values. Path parameters without a

@@ -43,6 +43,7 @@ jobs:
             exit 1
           fi
           echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "NAME=$(node -p "require('./package.json').name")" >> "$GITHUB_ENV"
 
       - run: npm ci
       - run: npm run typecheck
@@ -54,10 +55,9 @@ jobs:
 
       - name: Publish to npm
         run: |
-          name=$(node -p "require('./package.json').name")
           # Lets a failed run be re-run after npm already took this version.
-          if [ "$(npm view "$name@$VERSION" version 2> /dev/null)" = "$VERSION" ]; then
-            echo "$name@$VERSION is already on npm."
+          if [ "$(npm view "$NAME@$VERSION" version 2> /dev/null)" = "$VERSION" ]; then
+            echo "$NAME@$VERSION is already on npm."
           else
             # Tests and build already ran above; skip prepublishOnly.
             npm publish --tag "$DIST_TAG" --ignore-scripts
@@ -69,4 +69,4 @@ jobs:
         run: |
           flags=(--verify-tag --generate-notes)
           if [ "$DIST_TAG" = next ]; then flags+=(--prerelease); fi
-          gh release create "$GITHUB_REF_NAME" "portal-aluno-$VERSION.mcpb" "${flags[@]}"
+          gh release create "$GITHUB_REF_NAME" "$NAME-$VERSION.mcpb" "${flags[@]}"
