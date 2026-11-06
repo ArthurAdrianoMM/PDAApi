@@ -1,6 +1,6 @@
 {
   "name": "portal-2",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Read-only local API for the SENAI Portal do Aluno (TOTVS RM Portal Educacional).",
   "license": "MIT",
   "author": "Arthur Adriano Mendes Machado",
