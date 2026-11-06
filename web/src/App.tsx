@@ -38,7 +38,7 @@ export function App() {
   const isLogin = route.kind === 'entrar';
   useEffect(() => {
     const page = isLogin ? 'Entrar' : operation?.summary;
-    document.title = page ? `${page} · Portal do Aluno API` : 'Portal do Aluno API';
+    document.title = page ? `${page} · Portal 2` : 'Portal 2';
     window.scrollTo(0, 0);
   }, [operation, isLogin]);
 

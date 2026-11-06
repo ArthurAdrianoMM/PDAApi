@@ -5,7 +5,7 @@ import { CopyButton } from './CopyButton';
 import { PlayIcon, UserIcon } from './Icons';
 import { InlineText } from './Markdown';
 
-const SERVE_COMMAND = 'portal-aluno serve';
+const SERVE_COMMAND = 'portal-2 serve';
 
 /** Why the form is hidden, for each state that needs a login first. */
 const LOGIN_NEEDED: Partial<Record<ConnectionState, { title: string; text: string }>> = {

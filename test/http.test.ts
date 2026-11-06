@@ -29,7 +29,7 @@ const BASE = `http://127.0.0.1:${PORT}`;
 const CONTEXT_ID = 'ctx+B/2==';
 
 /** A stand-in for the built docs page (dist/web). */
-const DOCS_DIR = mkdtempSync(join(tmpdir(), 'portal-aluno-docs-'));
+const DOCS_DIR = mkdtempSync(join(tmpdir(), 'portal-2-docs-'));
 mkdirSync(join(DOCS_DIR, 'assets'));
 writeFileSync(join(DOCS_DIR, 'index.html'), '<!doctype html><title>docs</title>');
 writeFileSync(join(DOCS_DIR, 'assets', 'index-abc123.js'), 'console.log(1);');

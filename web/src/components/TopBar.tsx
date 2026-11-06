@@ -176,7 +176,7 @@ export function TopBar({ title, version, query, onQuery, onSubmitQuery, connecti
     <header className="topbar" ref={header}>
       <a className="brand" href="#/">
         <span className="brand__mark" aria-hidden="true">
-          pa
+          p2
         </span>
         <span className="brand__name">{title}</span>
         <span className="brand__version">v{version}</span>

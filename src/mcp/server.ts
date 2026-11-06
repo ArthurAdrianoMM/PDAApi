@@ -32,7 +32,7 @@ export interface McpDeps {
   operations?: readonly Operation[];
 }
 
-export const SERVER_INFO = { name: 'portal-aluno', title: 'Portal do Aluno', version: VERSION };
+export const SERVER_INFO = { name: 'portal-2', title: 'Portal 2', version: VERSION };
 
 export function createMcpServer(deps: McpDeps): McpServer {
   const { session, log = (line: string) => console.error(line) } = deps;

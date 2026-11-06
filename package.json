@@ -1,5 +1,5 @@
 {
-  "name": "portal-aluno",
+  "name": "portal-2",
   "version": "0.1.0",
   "description": "Read-only local API for the SENAI Portal do Aluno (TOTVS RM Portal Educacional).",
   "license": "MIT",
@@ -7,17 +7,20 @@
   "keywords": [
     "senai",
     "portal-do-aluno",
+    "portal-2",
     "mcp",
     "mcp-server",
     "totvs"
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ArthurAdrianoMM/PDAApi.git"
+    "url": "git+https://github.com/ArthurAdrianoMM/portal-2.git"
   },
+  "homepage": "https://github.com/ArthurAdrianoMM/portal-2#readme",
+  "bugs": "https://github.com/ArthurAdrianoMM/portal-2/issues",
   "type": "module",
   "bin": {
-    "portal-aluno": "dist/cli/main.js"
+    "portal-2": "dist/cli/main.js"
   },
   "files": [
     "dist"

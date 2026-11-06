@@ -34,7 +34,7 @@ export function LoginPage({ title, version, connection, voltar }: LoginPageProps
       <aside className="login__side">
         <a className="brand" href={voltar}>
           <span className="brand__mark" aria-hidden="true">
-            pa
+            p2
           </span>
           <span className="brand__name">{title}</span>
           <span className="brand__version">v{version}</span>
@@ -62,7 +62,7 @@ export function LoginPage({ title, version, connection, voltar }: LoginPageProps
             <div className="notice notice--dashed">
               <strong>Esta cópia não fala com um servidor local</strong>
               <p>
-                Rode <code>portal-aluno serve</code> no seu computador e abra a documentação que ele serve para entrar.
+                Rode <code>portal-2 serve</code> no seu computador e abra a documentação que ele serve para entrar.
               </p>
             </div>
           ) : (

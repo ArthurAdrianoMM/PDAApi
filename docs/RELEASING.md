@@ -20,7 +20,7 @@ git push --follow-tags
 3. `version`: regenerates `openapi.json` (it carries the version) and stages it.
 4. Commits as `0.2.0` and tags `v0.2.0`.
 
-The push starts the workflow. Follow it under the repository's **Actions** tab. When it's green, the version is on npm with a provenance badge, and the release page has notes generated from the commits plus `portal-aluno-<version>.mcpb`.
+The push starts the workflow. Follow it under the repository's **Actions** tab. When it's green, the version is on npm with a provenance badge, and the release page has notes generated from the commits plus `portal-2-<version>.mcpb`.
 
 Release notes come from commit subjects, so keep using conventional commits (`feat(mcp): …`, `fix(core): …`). Edit the notes on GitHub afterwards if a release needs a sentence of explanation.
 
@@ -45,7 +45,7 @@ npm version prerelease --preid beta   # 0.3.0-beta.0, then 0.3.0-beta.1, …
 git push --follow-tags
 ```
 
-The workflow publishes it under the npm tag `next`, and marks the GitHub Release as a pre-release. `@latest` doesn't move, so nobody gets it by accident. Try it with `npx portal-aluno@next serve`. When it's ready, `npm version minor` (or `patch`) releases `0.3.0` to everyone.
+The workflow publishes it under the npm tag `next`, and marks the GitHub Release as a pre-release. `@latest` doesn't move, so nobody gets it by accident. Try it with `npx portal-2@next serve`. When it's ready, `npm version minor` (or `patch`) releases `0.3.0` to everyone.
 
 ## When a release goes wrong
 
@@ -55,23 +55,23 @@ The workflow publishes it under the npm tag `next`, and marks the GitHub Release
   git tag -f v0.3.0 && git push -f origin v0.3.0
   ```
 
-  Only do this when npm doesn't have the version yet (`npm view portal-aluno versions`).
+  Only do this when npm doesn't have the version yet (`npm view portal-2 versions`).
 
 - **It failed after publishing.** Re-run the failed job from the Actions tab. The publish step skips a version npm already has.
 
 - **A published version is broken.** Don't unpublish, and never reuse a version number. Release a fixed patch, then point users away from the broken one:
 
   ```sh
-  npm deprecate portal-aluno@0.3.0 "Quebrada: use 0.3.1 ou mais nova."
+  npm deprecate portal-2@0.3.0 "Quebrada: use 0.3.1 ou mais nova."
   ```
 
 ## How users get new versions
 
 | How it runs | How it updates |
 |---|---|
-| MCP clients, configured with `npx -y portal-aluno@latest mcp` | On their own: each client start resolves the newest release. Without `@latest`, npx may keep running a cached old version. |
-| `npx portal-aluno@latest serve` | On its own, the same way. |
-| `npm install -g portal-aluno` | `npm install -g portal-aluno@latest`. `serve` prints a notice when a newer release exists ([src/cli/update-check.ts](../src/cli/update-check.ts)). |
+| MCP clients, configured with `npx -y portal-2@latest mcp` | On their own: each client start resolves the newest release. Without `@latest`, npx may keep running a cached old version. |
+| `npx portal-2@latest serve` | On its own, the same way. |
+| `npm install -g portal-2` | `npm install -g portal-2@latest`. `serve` prints a notice when a newer release exists ([src/cli/update-check.ts](../src/cli/update-check.ts)). |
 | Claude Desktop (`.mcpb`) | Download the new bundle from the latest GitHub Release and open it. |
 
 That's why the docs always write `@latest`. After `1.0.0`, `@1` is the safer choice: updates, but never a breaking one.
@@ -89,7 +89,7 @@ Done once, by the package owner.
 
 2. **Trust the workflow.** On npmjs.com, open the package → **Settings** → **Trusted Publisher** → **GitHub Actions**:
    - Organization or user: `ArthurAdrianoMM`
-   - Repository: `PDAApi`
+   - Repository: `portal-2`
    - Workflow filename: `release.yml`
    - Environment: leave empty
 

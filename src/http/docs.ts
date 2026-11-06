@@ -36,7 +36,7 @@ const CONTENT_TYPES: Record<string, string> = {
 };
 
 const NOT_BUILT = `<!doctype html>
-<html lang="pt-BR"><meta charset="utf-8"><title>Portal do Aluno API</title>
+<html lang="pt-BR"><meta charset="utf-8"><title>Portal 2</title>
 <p>A interface da documentação ainda não foi gerada. Rode <code>npm run build:web</code> e reinicie o servidor.</p>
 <p>A API e o <a href="/openapi.json">openapi.json</a> funcionam sem ela.</p>
 </html>

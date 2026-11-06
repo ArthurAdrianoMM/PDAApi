@@ -1,9 +1,9 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Portal do Aluno API",
+    "title": "Portal 2",
     "version": "0.1.0",
-    "description": "API somente leitura para os seus dados do Portal do Aluno do SENAI. Ela roda no seu computador (`portal-aluno serve`) e fala com o portal usando a sua conta. Nenhum outro servidor participa.\n\n**Autenticação:** entre com o usuário e a senha do portal na documentação (`/docs/`), ou envie `POST /sessao` com `{\"usuario\", \"senha\"}` em JSON. A resposta traz um token; envie-o como `Authorization: Bearer <token>`. Um novo login invalida o token anterior.",
+    "description": "API somente leitura para os seus dados do Portal do Aluno do SENAI. Ela roda no seu computador (`portal-2 serve`) e fala com o portal usando a sua conta. Nenhum outro servidor participa.\n\n**Autenticação:** entre com o usuário e a senha do portal na documentação (`/docs/`), ou envie `POST /sessao` com `{\"usuario\", \"senha\"}` em JSON. A resposta traz um token; envie-o como `Authorization: Bearer <token>`. Um novo login invalida o token anterior.",
     "x-portal": {
       "url": "https://senaiweb6.fieb.org.br"
     }
@@ -11,7 +11,7 @@
   "servers": [
     {
       "url": "http://127.0.0.1:4321",
-      "description": "Servidor local (`portal-aluno serve`)"
+      "description": "Servidor local (`portal-2 serve`)"
     }
   ],
   "security": [

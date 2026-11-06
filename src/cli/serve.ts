@@ -37,7 +37,7 @@ export function envCredentials(env: NodeJS.ProcessEnv = process.env): Credential
 }
 
 /**
- * `portal-aluno serve`: serves the API and its docs on 127.0.0.1. Login happens
+ * `portal-2 serve`: serves the API and its docs on 127.0.0.1. Login happens
  * in the docs page, or at startup when the credentials are in the environment.
  */
 export async function serveCommand(options: ServeOptions): Promise<void> {

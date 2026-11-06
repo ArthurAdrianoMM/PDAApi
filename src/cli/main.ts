@@ -5,11 +5,11 @@ import { VERSION } from '../version.js';
 import { mcpCommand } from './mcp.js';
 import { serveCommand } from './serve.js';
 
-const HELP = `portal-aluno ${VERSION}: seus dados do Portal do Aluno, numa API local.
+const HELP = `portal-2 ${VERSION}: seus dados do Portal do Aluno, numa API local.
 
 Uso:
-  portal-aluno serve [--port 4321] [--period 2026S2]
-  portal-aluno mcp [--period 2026S2]
+  portal-2 serve [--port 4321] [--period 2026S2]
+  portal-2 mcp [--period 2026S2]
 
 Comandos:
   serve        Serve a API e a documentação em 127.0.0.1.
