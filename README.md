@@ -234,3 +234,7 @@ test/            Vitest, with an in-memory fake portal (test/support) and made-u
 - Cookies live in memory. Nothing is written to disk or logged.
 - Error messages name fields and types, never values from the portal.
 - If the portal refuses a request (403), the error is passed on. There is no retry another way.
+
+## License
+
+[MIT](LICENSE) © 2026 Arthur Adriano Mendes Machado. Unofficial: not affiliated with SENAI, FIEB or TOTVS.
