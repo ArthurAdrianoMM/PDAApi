@@ -54,7 +54,7 @@ export function StartPage({ model }: { model: DocModel }) {
             <span className="step__number">02</span>
             <h3>Abra a documentação</h3>
             <p>O terminal mostra o endereço. Sem entrar, dá para ler todos os endpoints e exemplos.</p>
-            <pre className="terminal">{`Documentação: http://${localHost}/docs/`}</pre>
+            <pre className="terminal">{`Rodando em http://${localHost}/`}</pre>
           </div>
           <div className="card step">
             <span className="step__number">03</span>

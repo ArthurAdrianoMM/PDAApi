@@ -33,10 +33,10 @@ portal-2 serve
 
 When a newer release is on npm, `serve` says so at startup and prints the command that updates it. `NO_UPDATE_NOTIFIER=1` turns that check off.
 
-It prints the docs address. The page works without an account: every endpoint, schema and example is there. To send requests with your data, click the user icon in the top right and log in with your portal user and password. "Lembrar de mim" keeps you logged in in this browser until the server restarts; without it, the login lasts for this tab only.
+It prints the local address, which opens the docs. The page works without an account: every endpoint, schema and example is there. To send requests with your data, click the user icon in the top right and log in with your portal user and password. "Lembrar de mim" keeps you logged in in this browser until the server restarts; without it, the login lasts for this tab only.
 
 ```
-Documentação: http://127.0.0.1:4321/docs/
+Rodando em http://127.0.0.1:4321/
 ```
 
 Endpoints that answer for one enrollment (`/disciplinas` and its lessons, `/notas`, `/faltas`, `/faltas/aulas`, `/horario`, `/aulas`) use the most recent one, or the one given with `--period`. Pass `periodo` with a code from `/periodos` to ask about another, for example `/notas?periodo=2026S1`.
@@ -48,8 +48,8 @@ With `PORTAL_ALUNO_USER` and `PORTAL_ALUNO_PASSWORD` set, the server logs in at 
 ```
 ✓ Conectado. Matrícula do período 2026S2.
 
-Documentação: http://127.0.0.1:4321/docs/#token=…
-Token:        …
+Rodando em http://127.0.0.1:4321/#token=…
+Token:      …
 ```
 
 ## Use with AI agents (MCP)

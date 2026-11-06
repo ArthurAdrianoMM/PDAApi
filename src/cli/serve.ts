@@ -63,16 +63,16 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
   });
   const server = await listen(app, options.port);
   const { port } = server.address() as AddressInfo;
-  const docs = `http://${HOSTNAME}:${port}/docs/`;
+  const url = `http://${HOSTNAME}:${port}/`;
 
   const lines = initial
     ? [
         `✓ Conectado. Matrícula do período ${initial.period}.`,
         '',
-        `Documentação: ${docs}#token=${initial.token}`,
-        `Token:        ${initial.token}`,
+        `Rodando em ${url}#token=${initial.token}`,
+        `Token:      ${initial.token}`,
       ]
-    : [`Documentação: ${docs}`, '', 'Entre com o usuário e a senha do portal pelo ícone no canto superior direito.'];
+    : [`Rodando em ${url}`];
   console.log([...lines, '', 'A sessão fica só na memória deste processo. Ctrl+C encerra e a apaga.'].join('\n'));
 
   void checkForUpdate(PACKAGE_NAME, VERSION).then((latest) => {
