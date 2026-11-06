@@ -36,7 +36,12 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p web",
     "test": "vitest run",
     "pack:mcpb": "npm run build && tsx scripts/pack-mcpb.ts",
+    "preversion": "npm run typecheck && npm test",
+    "version": "npm run openapi && git add openapi.json",
     "prepublishOnly": "npm test && npm run build"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "dependencies": {
     "@hono/node-server": "2.1.5",

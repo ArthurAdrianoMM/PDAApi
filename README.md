@@ -1,6 +1,6 @@
 # portal-aluno
 
-A read-only API for your own data in the SENAI Portal do Aluno. It runs on your computer and talks to the portal with your account. No other server is involved.
+A read-only API for your own data in the SENAI Portal do Aluno. It runs on your computer and talks to the portal with your account. No other server is involved, apart from npm: the one place it's installed and updated from.
 
 Class project, not official, not affiliated with SENAI or FIEB. Scope and limits: [INTENT.md](INTENT.md). What the portal exposes: [ENDPOINTS.md](ENDPOINTS.md). The MCP server's design: [docs/MCP.md](docs/MCP.md).
 
@@ -20,10 +20,18 @@ Node.js 22.19 or newer.
 ## Use
 
 ```sh
-npm install
-npm run serve                     # builds the docs page, then serves; or: npm run build && node dist/cli/main.js serve
-npm run serve -- --port 5000 --period 2026S1
+npx portal-aluno@latest serve
+npx portal-aluno@latest serve --port 5000 --period 2026S1
 ```
+
+`npx` downloads the package the first time and always runs the newest release. To install the `portal-aluno` command instead:
+
+```sh
+npm install -g portal-aluno       # run the same command with @latest to update
+portal-aluno serve
+```
+
+When a newer release is on npm, `serve` says so at startup and prints the command that updates it. `NO_UPDATE_NOTIFIER=1` turns that check off.
 
 It prints the docs address. The page works without an account: every endpoint, schema and example is there. To send requests with your data, click the user icon in the top right and log in with your portal user and password. "Lembrar de mim" keeps you logged in in this browser until the server restarts; without it, the login lasts for this tab only.
 
@@ -50,14 +58,14 @@ Token:        …
 
 It reads your portal user and password from `PORTAL_ALUNO_USER` and `PORTAL_ALUNO_PASSWORD`, which the client passes to it. It starts without contacting the portal and logs in on the first tool call, so a missing variable or a wrong password shows up in the chat as an error the agent can explain. After the portal refuses the password once, it stops trying until restarted, so it can't lock your account.
 
-> Until the package is on npm, replace `npx -y portal-aluno mcp` below with `node <this folder>/dist/cli/main.js mcp` (after `npm run build`).
+The setups below run `npx -y portal-aluno@latest mcp`, so every time the client starts the server it gets the newest release. Without `@latest`, npx may keep a cached old version.
 
-**Claude Desktop.** Run `npm run pack:mcpb` and open `portal-aluno-<version>.mcpb`. Claude Desktop asks for the user and password and keeps the password in its secure storage.
+**Claude Desktop.** Download `portal-aluno-<version>.mcpb` from the [latest release](https://github.com/ArthurAdrianoMM/PDAApi/releases/latest) and open it. Claude Desktop asks for the user and password and keeps the password in its secure storage. To update, open the bundle from a newer release.
 
 **Claude Code.**
 
 ```sh
-claude mcp add portal-aluno -e PORTAL_ALUNO_USER=<usuário> -e PORTAL_ALUNO_PASSWORD=<senha> -- npx -y portal-aluno mcp
+claude mcp add portal-aluno -e PORTAL_ALUNO_USER=<usuário> -e PORTAL_ALUNO_PASSWORD=<senha> -- npx -y portal-aluno@latest mcp
 ```
 
 **VS Code** (`.vscode/mcp.json`). VS Code asks for the password and keeps it in its secure storage:
@@ -72,7 +80,7 @@ claude mcp add portal-aluno -e PORTAL_ALUNO_USER=<usuário> -e PORTAL_ALUNO_PASS
     "portal-aluno": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "portal-aluno", "mcp"],
+      "args": ["-y", "portal-aluno@latest", "mcp"],
       "env": { "PORTAL_ALUNO_USER": "${input:portal-usuario}", "PORTAL_ALUNO_PASSWORD": "${input:portal-senha}" }
     }
   }
@@ -86,7 +94,7 @@ claude mcp add portal-aluno -e PORTAL_ALUNO_USER=<usuário> -e PORTAL_ALUNO_PASS
   "mcpServers": {
     "portal-aluno": {
       "command": "npx",
-      "args": ["-y", "portal-aluno", "mcp"],
+      "args": ["-y", "portal-aluno@latest", "mcp"],
       "env": { "PORTAL_ALUNO_USER": "<usuário>", "PORTAL_ALUNO_PASSWORD": "<senha>" }
     }
   }
@@ -98,7 +106,7 @@ claude mcp add portal-aluno -e PORTAL_ALUNO_USER=<usuário> -e PORTAL_ALUNO_PASS
 ```toml
 [mcp_servers.portal-aluno]
 command = "npx"
-args = ["-y", "portal-aluno", "mcp"]
+args = ["-y", "portal-aluno@latest", "mcp"]
 env = { PORTAL_ALUNO_USER = "<usuário>", PORTAL_ALUNO_PASSWORD = "<senha>" }
 ```
 
@@ -120,10 +128,14 @@ Every tool only reads. The tools say so to the client (`readOnlyHint`), so most 
 - The page keeps the token in `sessionStorage` (this tab only), or in `localStorage` when "Lembrar de mim" is ticked. A token from the startup link reaches the page in the `#hash`, which browsers never send to servers, and is removed from the address bar.
 - Files from the portal (materials, the profile photo) are sent as `attachment` with `Content-Security-Policy: default-src 'none'; sandbox`, so a file can never run as a page of this server, where the token lives. The docs page allows `blob:` images only to preview a photo it downloaded itself.
 - The request log has method, path, status and time. No query strings, no bodies.
+- At startup it asks the npm registry for the latest version of `portal-aluno`, to tell you about updates. The request carries nothing but the package name, and `NO_UPDATE_NOTIFIER=1` turns it off. `mcp` never makes it.
 
 ## Development
 
 ```sh
+git clone https://github.com/ArthurAdrianoMM/PDAApi.git && cd PDAApi
+npm install
+npm run serve       # builds the docs page, then serves from source; npm run serve -- --port 5000 for options
 npm test            # unit tests against an in-memory fake portal, no network
 npm run typecheck
 npm run openapi     # regenerate openapi.json after changing an operation (a test fails if you forget)
@@ -146,6 +158,8 @@ npm run -s dev:mcp:fake                     # MCP server on stdio, made-up data;
 npm run -s dev:mcp:fake -- --senha-errada   # the same, with a refused login
 claude mcp add portal-aluno-fake -- npm --prefix "$PWD" run -s dev:mcp:fake
 ```
+
+CI runs the typecheck, the tests and the build on every pull request. Releases are a version tag; see [docs/RELEASING.md](docs/RELEASING.md).
 
 In the [MCP Inspector](https://github.com/modelcontextprotocol/inspector), connect to the command `npm run -s dev:mcp:fake` in this folder. Don't give the Inspector your real credentials: it saves the `env` values of stdio servers.
 

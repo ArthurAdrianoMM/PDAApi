@@ -125,8 +125,8 @@ test/mcp.test.ts
 1. Shared error bodies (`src/api/errors.ts`) and JSON Schema (`src/api/json-schema.ts`), used by both transports.
 2. `createMcpServer`, `tools.ts`, `results.ts`, `instructions.ts`, with tests.
 3. The `mcp` command, `envSession`, and `npm run -s dev:mcp:fake`.
-4. A package ready for npm (`npx -y portal-aluno mcp`), and setup per client in the README. Publishing it is a separate step: `npm publish` with your npm account.
-5. A `.mcpb` bundle for Claude Desktop (`npm run pack:mcpb`, manifest version 0.4), where the password is typed into a form and kept by Claude Desktop in secure storage. The manifest is generated from `package.json` and the operations, so it can't fall behind. Claude Desktop ships Node.js, so users install nothing else.
+4. The npm package (`npx -y portal-aluno@latest mcp`), and setup per client in the README. Releases are published from a version tag by CI: [RELEASING.md](RELEASING.md).
+5. A `.mcpb` bundle for Claude Desktop (`npm run pack:mcpb`, manifest version 0.4, attached to every GitHub Release), where the password is typed into a form and kept by Claude Desktop in secure storage. The manifest is generated from `package.json` and the operations, so it can't fall behind. Claude Desktop ships Node.js, so users install nothing else.
 
 ### Phase 2: `/mcp` on the local server
 
