@@ -65,11 +65,11 @@ const npx = (...args: string[]) => execFileSync('npx', ['-y', MCPB, ...args], { 
 const out = join(ROOT, `portal-aluno-${pkg.version}.mcpb`);
 const stage = mkdtempSync(join(tmpdir(), 'portal-aluno-mcpb-'));
 try {
-  // The server only: no docs page, no source maps.
+  // The server only: MCP clients never open the docs page.
   const web = join(ROOT, 'dist', 'web');
   cpSync(join(ROOT, 'dist'), join(stage, 'dist'), {
     recursive: true,
-    filter: (src) => src !== web && !src.startsWith(web + sep) && !src.endsWith('.map'),
+    filter: (src) => src !== web && !src.startsWith(web + sep),
   });
   for (const file of ['package.json', 'package-lock.json']) cpSync(join(ROOT, file), join(stage, file));
   execFileSync('npm', ['ci', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund'], { cwd: stage, stdio: 'inherit' });

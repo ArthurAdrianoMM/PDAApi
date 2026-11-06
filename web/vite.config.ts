@@ -13,7 +13,6 @@ export default defineConfig({
   build: {
     outDir: '../dist/web',
     emptyOutDir: true,
-    sourcemap: true,
   },
   server: {
     // Everything outside /docs/ is the API: forward it to the local server, which
