@@ -4,6 +4,8 @@ import { DEFAULT_CONFIG, PortalSession, type Credentials, type PortalConfig } fr
 import { createApp } from '../http/app.js';
 import { createToken } from '../http/login.js';
 import { PASSWORD_VAR, USER_VAR, readEnvCredentials } from '../env.js';
+import { PACKAGE_NAME, VERSION } from '../version.js';
+import { checkForUpdate, updateHint } from './update-check.js';
 
 export interface ServeOptions {
   port: number;
@@ -72,6 +74,10 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
       ]
     : [`Documentação: ${docs}`, '', 'Entre com o usuário e a senha do portal pelo ícone no canto superior direito.'];
   console.log([...lines, '', 'A sessão fica só na memória deste processo. Ctrl+C encerra e a apaga.'].join('\n'));
+
+  void checkForUpdate(PACKAGE_NAME, VERSION).then((latest) => {
+    if (latest) console.log(`\nNova versão disponível: ${latest} (esta é a ${VERSION}). Atualize com: ${updateHint(PACKAGE_NAME)}`);
+  });
 
   const stop = () => {
     server.close();
