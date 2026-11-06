@@ -4,7 +4,6 @@ import { describe, expect, it } from 'vitest';
 import { generateOpenApi } from '../src/openapi/generate.js';
 import { defineFileOperation, isFileOperation, operations } from '../src/operations/index.js';
 import { listarPeriodos } from '../src/operations/periodos.js';
-import { VERSION } from '../src/version.js';
 
 const readJson = async (path: string) => JSON.parse(await readFile(new URL(path, import.meta.url), 'utf8'));
 
@@ -26,7 +25,7 @@ describe('OpenAPI document', () => {
   });
 
   it('uses the package version', async () => {
-    expect(VERSION).toBe((await readJson('../package.json')).version);
+    expect(doc).toMatchObject({ info: { version: (await readJson('../package.json')).version } });
   });
 
   it('has one operation per definition, with a 200 example or file types, and the error responses', () => {
