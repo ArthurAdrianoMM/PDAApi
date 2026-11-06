@@ -2,7 +2,7 @@
  * Builds the OpenAPI 3.1 document from the operation definitions. Nothing in it
  * is written by hand: schemas come from Zod, texts from each operation file.
  */
-import { z } from 'zod';
+import { jsonSchema, type JsonSchema } from '../api/json-schema.js';
 import { DEFAULT_CONFIG, PORTAL_ERROR_CODES } from '../core/index.js';
 import { ERROR_DESCRIPTIONS, ERROR_STATUS, apiErrorSchema, type ApiErrorCode } from '../http/errors.js';
 import { TAGS, operations as allOperations, isFileOperation, type Callout, type Operation } from '../operations/index.js';
@@ -11,7 +11,6 @@ import { VERSION } from '../version.js';
 export const DEFAULT_SERVER_URL = 'http://127.0.0.1:4321';
 export const SECURITY_SCHEME = 'tokenLocal';
 
-type JsonSchema = Record<string, unknown>;
 export type OpenApiDocument = Record<string, unknown>;
 
 export interface OpenApiOptions {
@@ -27,24 +26,10 @@ const API_DESCRIPTION = [
   '**Autenticação:** entre com o usuário e a senha do portal na documentação (`/docs/`), ou envie ' +
     '`POST /sessao` com `{"usuario", "senha"}` em JSON. A resposta traz um token; envie-o como ' +
     '`Authorization: Bearer <token>`. Um novo login invalida o token anterior.',
-  'Projeto de aula, não oficial. Sem vínculo com o SENAI ou a FIEB.',
 ].join('\n\n');
 
 /** Errors any operation can return, besides the portal's. */
 const OPERATION_LOCAL_ERRORS: ApiErrorCode[] = ['parametro_invalido', 'token_invalido', 'erro_interno'];
-
-function jsonSchema(schema: z.ZodType, io: 'input' | 'output'): JsonSchema {
-  const { $schema: _, ...rest } = z.toJSONSchema(schema, {
-    io,
-    unrepresentable: 'throw',
-    // `.int()` adds the safe-integer range as bounds; they are noise in the docs.
-    override: ({ jsonSchema }) => {
-      if (jsonSchema.minimum === Number.MIN_SAFE_INTEGER) delete jsonSchema.minimum;
-      if (jsonSchema.maximum === Number.MAX_SAFE_INTEGER) delete jsonSchema.maximum;
-    },
-  }) as JsonSchema;
-  return rest;
-}
 
 /** Callouts as GitHub-style alerts, so any Markdown viewer shows them. */
 function alert(kind: Callout['kind'], title: string, body: string): string {

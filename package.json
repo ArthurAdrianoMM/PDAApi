@@ -1,8 +1,18 @@
 {
   "name": "portal-aluno",
   "version": "0.1.0",
-  "private": true,
   "description": "Read-only local API for the SENAI Portal do Aluno (TOTVS RM Portal Educacional).",
+  "keywords": [
+    "senai",
+    "portal-do-aluno",
+    "mcp",
+    "mcp-server",
+    "totvs"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ArthurAdrianoMM/PDAApi.git"
+  },
   "type": "module",
   "bin": {
     "portal-aluno": "dist/cli/main.js"
@@ -18,15 +28,24 @@
     "build:web": "vite build --config web/vite.config.ts",
     "serve": "npm run build:web && tsx src/cli/main.ts serve",
     "dev:fake": "tsx scripts/fake-serve.ts",
+    "dev:mcp:fake": "tsx scripts/fake-mcp.ts",
     "dev:web": "vite --config web/vite.config.ts",
     "openapi": "tsx scripts/openapi.ts",
     "try": "tsx scripts/try.ts",
     "probe": "tsx scripts/probe.ts",
     "typecheck": "tsc --noEmit && tsc --noEmit -p web",
-    "test": "vitest run"
+    "test": "vitest run",
+    "pack:mcpb": "npm run build && tsx scripts/pack-mcpb.ts",
+    "preversion": "npm run typecheck && npm test",
+    "version": "npm run openapi && git add openapi.json",
+    "prepublishOnly": "npm test && npm run build"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "dependencies": {
     "@hono/node-server": "2.1.5",
+    "@modelcontextprotocol/server": "2.4.0",
     "hono": "4.13.13",
     "tough-cookie": "^6.0.2",
     "zod": "^4.6.7"
@@ -34,6 +53,7 @@
   "devDependencies": {
     "@fontsource/jetbrains-mono": "5.3.0",
     "@fontsource/lexend": "5.3.0",
+    "@modelcontextprotocol/client": "2.4.0",
     "@seriousme/openapi-schema-validator": "2.11.0",
     "@types/node": "^22.20.5",
     "@types/react": "19.3.0",

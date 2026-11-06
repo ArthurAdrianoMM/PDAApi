@@ -3,6 +3,9 @@ import { serve, type ServerType } from '@hono/node-server';
 import { DEFAULT_CONFIG, PortalSession, type Credentials, type PortalConfig } from '../core/index.js';
 import { createApp } from '../http/app.js';
 import { createToken } from '../http/login.js';
+import { PASSWORD_VAR, USER_VAR, readEnvCredentials } from '../env.js';
+import { PACKAGE_NAME, VERSION } from '../version.js';
+import { checkForUpdate, updateHint } from './update-check.js';
 
 export interface ServeOptions {
   port: number;
@@ -25,13 +28,12 @@ function listen(app: ReturnType<typeof createApp>, port: number): Promise<Server
   });
 }
 
-/** `PORTAL_ALUNO_USER` and `PORTAL_ALUNO_PASSWORD`, when both are set. */
+/** `PORTAL_ALUNO_USER` and `PORTAL_ALUNO_PASSWORD`, when both are set; `null` when neither is. */
 export function envCredentials(env: NodeJS.ProcessEnv = process.env): Credentials | null {
-  const user = env.PORTAL_ALUNO_USER;
-  const password = env.PORTAL_ALUNO_PASSWORD;
-  if (!user && !password) return null;
-  if (!user || !password) throw new Error('Defina PORTAL_ALUNO_USER e PORTAL_ALUNO_PASSWORD juntos, ou nenhum dos dois.');
-  return { user, password };
+  const read = readEnvCredentials(env);
+  if ('credentials' in read) return read.credentials;
+  if (read.missing.length === 2) return null;
+  throw new Error(`Defina ${USER_VAR} e ${PASSWORD_VAR} juntos, ou nenhum dos dois.`);
 }
 
 /**
@@ -72,6 +74,10 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
       ]
     : [`Documentação: ${docs}`, '', 'Entre com o usuário e a senha do portal pelo ícone no canto superior direito.'];
   console.log([...lines, '', 'A sessão fica só na memória deste processo. Ctrl+C encerra e a apaga.'].join('\n'));
+
+  void checkForUpdate(PACKAGE_NAME, VERSION).then((latest) => {
+    if (latest) console.log(`\nNova versão disponível: ${latest} (esta é a ${VERSION}). Atualize com: ${updateHint(PACKAGE_NAME)}`);
+  });
 
   const stop = () => {
     server.close();
